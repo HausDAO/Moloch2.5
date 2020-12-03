@@ -145,12 +145,12 @@ contract MinionFactory is CloneFactory {
         template = _template;
     }
     
-    function summonMinion(address _moloch) external returns (address) {
+    function summonMinion(address moloch) external returns (address) {
         Minion minion = Minion(createClone(template));
         
-        minion.init(_moloch);
+        minion.init(moloch);
         
-        emit SummonMinion(address(minion), _moloch);
+        emit SummonMinion(address(minion), moloch);
         
         return(address(minion));
     }
