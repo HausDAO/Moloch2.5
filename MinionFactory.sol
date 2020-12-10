@@ -139,7 +139,7 @@ contract CloneFactory {
 contract MinionFactory is CloneFactory {
     address payable immutable public template; // fixed template for minion using eip-1167 proxy pattern
     
-    event SummonMinion(address indexed minion, address indexed moloch);
+    event SummonMinion(address indexed minion, address indexed moloch, string name);
     
     constructor(address payable _template) {
         template = _template;
@@ -149,9 +149,9 @@ contract MinionFactory is CloneFactory {
         Minion minion = Minion(createClone(template));
         
         minion.init(moloch);
+        string memory name = "vanilla minion";
         
-        emit SummonMinion(address(minion), moloch);
+        emit SummonMinion(address(minion), moloch, name);
         
         return(address(minion));
     }
-}
