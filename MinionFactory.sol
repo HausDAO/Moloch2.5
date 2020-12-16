@@ -36,6 +36,8 @@ contract Minion {
 
     event ProposeAction(uint256 proposalId, address proposer);
     event ExecuteAction(uint256 proposalId, address executor);
+    event DoWithdraw(address token, uint256 amount);
+    event CrossWithdraw(address target, address token, uint256 amount);
 
     function init(address _moloch) external {
         require(!initialized, "initialized"); 
@@ -46,6 +48,18 @@ contract Minion {
 
     function doWithdraw(address token, uint256 amount) external {
         moloch.withdrawBalance(token, amount); // withdraw funds from parent moloch
+        emit DoWithdraw(token, amount);
+    }
+    
+    function crossWithdraw(address target, address token, uint256 amount) external {
+
+        /* 
+        Target needs to have a withdrawBalance function that uses the same
+        name and inputs as the withdrawBalance in a Moloch -- so probably other Molochs. 
+        */ 
+        
+        IMOLOCH(target).withdrawBalance(token, amount); 
+        emit CrossWithdraw(target, token, amount);
     }
 
     function proposeAction(
@@ -138,20 +152,32 @@ contract CloneFactory {
 
 contract MinionFactory is CloneFactory {
     address payable immutable public template; // fixed template for minion using eip-1167 proxy pattern
+    address[] public minionList; 
+    mapping (address => AMinion) public minions;
     
-    event SummonMinion(address indexed minion, address indexed moloch, string name);
+    event SummonMinion(address indexed minion, address indexed moloch, string name, string minionType);
+    
+    struct AMinion {
+        address moloch;
+        string name; 
+    }
+    
     
     constructor(address payable _template) {
         template = _template;
     }
     
-    function summonMinion(address moloch) external returns (address) {
+    function summonMinion(address moloch, string memory name) external returns (address) {
         Minion minion = Minion(createClone(template));
         
         minion.init(moloch);
-        string memory name = "vanilla minion";
+        string memory minionType = "vanilla minion";
         
-        emit SummonMinion(address(minion), moloch, name);
+        minions[address(minion)] = AMinion(moloch, name);
+        minionList.push(address(minion));
+        emit SummonMinion(address(minion), moloch, name, minionType);
         
         return(address(minion));
+        
     }
+}
