@@ -66,14 +66,18 @@ contract Minion {
         emit DoWithdraw(token, amount);
     }
     
-    function crossWithdraw(address target, address token, uint256 amount) external {
+    function crossWithdraw(address target, address token, uint256 amount, bool transfer) external {
         // @Dev - Target needs to have a withdrawBalance functions
-        bool whitelisted = moloch.tokenWhitelist(token);
-        require(whitelisted, "not a whitelisted token");
+  
         IMOLOCH(target).withdrawBalance(token, amount); 
         
         // Transfers token into DAO. 
-        IERC20(token).transfer(address(moloch), amount);
+        if(transfer) {
+            bool whitelisted = moloch.tokenWhitelist(token);
+            require(whitelisted, "not a whitelisted token");
+            require(IERC20(token).transfer(address(moloch), amount), "token transfer failed");
+        }
+        
         emit CrossWithdraw(target, token, amount);
     }
     
