@@ -19,6 +19,12 @@ interface IMOLOCH { // brief interface for moloch dao v2
     function tokenWhitelist(address token) external view returns (bool);
     
     function getProposalFlags(uint256 proposalId) external view returns (bool[6] memory);
+    
+    function members(address user) external view returns (address, uint256, uint256, bool, uint256, uint256);
+    
+    function userTokenBalances(address user, address token) external view returns (uint256);
+    
+    function cancelProposal(uint256 proposalId) external;
 
     function submitProposal(
         address applicant,
@@ -53,6 +59,12 @@ contract Minion {
     event DoWithdraw(address token, uint256 amount);
     event CrossWithdraw(address target, address token, uint256 amount);
     event PulledFunds(address moloch, uint256 amount);
+    event ActionCanceled(uint256 proposalId);
+    
+     modifier memberOnly() {
+        require(isMember(msg.sender), "Minion::not member");
+        _;
+    }
 
     function init(address _moloch) external {
         require(!initialized, "initialized"); 
@@ -60,15 +72,16 @@ contract Minion {
         molochDepositToken = moloch.depositToken();
         initialized = true; 
     }
+    
+    //  -- Withdraw Functions --
 
-    function doWithdraw(address token, uint256 amount) external {
+    function doWithdraw(address token, uint256 amount) external memberOnly {
         moloch.withdrawBalance(token, amount); // withdraw funds from parent moloch
         emit DoWithdraw(token, amount);
     }
     
-    function crossWithdraw(address target, address token, uint256 amount, bool transfer) external {
+    function crossWithdraw(address target, address token, uint256 amount, bool transfer) external memberOnly {
         // @Dev - Target needs to have a withdrawBalance functions
-  
         IMOLOCH(target).withdrawBalance(token, amount); 
         
         // Transfers token into DAO. 
@@ -81,12 +94,14 @@ contract Minion {
         emit CrossWithdraw(target, token, amount);
     }
     
+    //  -- Proposal Functions --
+    
     function proposeAction(
         address actionTo,
         uint256 actionValue,
         bytes calldata actionData,
         string calldata details
-    ) external returns (uint256) {
+    ) external memberOnly returns (uint256) {
         // No calls to zero address allows us to check that proxy submitted
         // the proposal without getting the proposal struct from parent moloch
         require(actionTo != address(0), "invalid actionTo");
@@ -131,6 +146,22 @@ contract Minion {
         require(success, "call failure");
         emit ExecuteAction(proposalId, msg.sender);
         return retData;
+    }
+    
+    function cancelAction(uint256 _proposalId) external {
+        Action memory action = actions[_proposalId];
+        require(msg.sender == action.proposer, "not proposer");
+        delete actions[_proposalId];
+        emit ActionCanceled(_proposalId);
+        moloch.cancelProposal(_proposalId);
+    }
+    
+    //  -- Helper Functions --
+    
+    function isMember(address user) public view returns (bool) {
+        
+        (, uint shares,,,,) = moloch.members(user);
+        return shares > 0;
     }
 
     receive() external payable {}
