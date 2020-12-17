@@ -21,3 +21,11 @@ Other features of the vanilla minion are the ability to withdraw funds and cance
 The crossWithdraw function means that you can either draw funds from any Moloch into the minion (when transfer is set to false) or directly into the parent moloch (when transfer is set to true). The crossWithdraw function just takes a target address, a token address, an amount, and a true / false on that transfer option mentioned above. The crossWithdraw can only pull tokens directly into its parent DAO if the tokens have already been whitelisted. 
 
 The cancelProposal function allows an proposer to cancel the proposal they submitted. This function just takes the proposalId of the proposal they submitted. The cancelProposal function must be called prior to the proposal being sponsored in the parent moloch. 
+
+## Deployments
+
+xDAI - 0x9610389d548Ca0224aCaC40eB3241c5ED88D2479
+
+kovan - 0x80ec2dB292E7a6D1D5bECB80e6479b2bE048AC98
+
+rinkeby - 0x316eFCd421b0654B7aE8E806880D4AE88ecaE206
