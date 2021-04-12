@@ -44,7 +44,7 @@ interface IMOLOCH { // brief interface for moloch dao v2
     function withdrawBalance(address token, uint256 amount) external;
 }
 
-contract Minion {
+contract Minion is IERC721Receiver {
     IMOLOCH public moloch;
     address public molochDepositToken;
     bool private initialized; // internally tracks deployment under eip-1167 proxy pattern
