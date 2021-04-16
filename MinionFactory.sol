@@ -11,6 +11,10 @@ interface IERC20 { // brief interface for moloch erc20 token txs
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
+interface IERC721Receiver {
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external returns (bytes4);
+}
+
 interface IMOLOCH { // brief interface for moloch dao v2
 
 
@@ -40,7 +44,7 @@ interface IMOLOCH { // brief interface for moloch dao v2
     function withdrawBalance(address token, uint256 amount) external;
 }
 
-contract Minion {
+contract Minion is IERC721Receiver {
     IMOLOCH public moloch;
     address public molochDepositToken;
     bool private initialized; // internally tracks deployment under eip-1167 proxy pattern
@@ -72,6 +76,10 @@ contract Minion {
         molochDepositToken = moloch.depositToken();
         initialized = true; 
     }
+
+    function onERC721Received (address, address, uint256, bytes calldata) external pure override returns(bytes4) {
+        return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
+    } 
     
     //  -- Withdraw Functions --
 
