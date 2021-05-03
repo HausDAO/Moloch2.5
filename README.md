@@ -44,3 +44,9 @@ rinkeby - 0x313F02A44089150C9ff7011D4e87b52404A914A9
 mainnet - 0x88207Daf515e0da1A32399b3f92D128B1BF45294
 
 matic - 0x02e458B5eEF8f23e78AefaC0F15f5d294C3762e9
+
+## Credits
+
+Based on the original work done by RaidGuild at [Moloch-Minion](https://github.com/raid-guild/moloch-minion/)
+
+To be used as an extention to the Moloch V2 contracts by MolochVentures [Moloch](https://github.com/MolochVentures/moloch)
