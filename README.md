@@ -49,4 +49,4 @@ matic - 0x02e458B5eEF8f23e78AefaC0F15f5d294C3762e9
 
 Based on the original work done by RaidGuild at [Moloch-Minion](https://github.com/raid-guild/moloch-minion/)
 
-To be used as an extention to the Moloch V2 contracts by MolochVentures [Moloch](https://github.com/MolochVentures/moloch)
+To be used as an extension to the Moloch V2 contracts by MolochVentures [Moloch](https://github.com/MolochVentures/moloch)
