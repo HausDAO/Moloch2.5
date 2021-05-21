@@ -167,6 +167,7 @@ contract Minion is IERC721Receiver {
     //  -- Helper Functions --
     
     function isMember(address user) public view returns (bool) {
+        // member only check should check if member or delegate
         
         (, uint shares,,,,) = moloch.members(user);
         return shares > 0;
