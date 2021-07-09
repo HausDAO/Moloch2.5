@@ -1,5 +1,14 @@
+// Based on https://github.com/HausDAO/MinionSummoner/blob/main/MinionFactory.sol
+
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.7.5;
+
+interface IERC1271 {
+    function isValidSignature(bytes32 _messageHash, bytes memory _signature)
+        external
+        view
+        returns (bytes4 magicValue);
+}
 
 interface IERC20 { // brief interface for moloch erc20 token txs
     function balanceOf(address who) external view returns (uint256);
@@ -11,6 +20,7 @@ interface IERC20 { // brief interface for moloch erc20 token txs
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
+// TODO add IERC1155Receiver
 interface IERC721Receiver {
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external returns (bytes4);
 }
@@ -44,7 +54,7 @@ interface IMOLOCH { // brief interface for moloch dao v2
     function withdrawBalance(address token, uint256 amount) external;
 }
 
-contract Minion is IERC721Receiver {
+contract ERC1271Minion is IERC721Receiver, IERC1271 {
     IMOLOCH public moloch;
     address public molochDepositToken;
     bool private initialized; // internally tracks deployment under eip-1167 proxy pattern
@@ -58,8 +68,24 @@ contract Minion is IERC721Receiver {
         bytes data;
     }
 
+    struct DAOSignature {
+        bytes32 signatureHash;
+        bytes4 magicValue;
+        uint256 proposalId;
+        address proposer;
+    }
+
+    mapping (bytes32 => DAOSignature) public signatures; // msgHash => Signature
+    // todo lookup signature hash by
+    mapping (uint256 => bytes32) msgHashes;
+
     event ProposeAction(uint256 proposalId, address proposer);
     event ExecuteAction(uint256 proposalId, address executor);
+
+    event ProposeSignature(uint256 proposalId, bytes32 msgHash, address proposer);
+    event SignatureCanceled(uint256 proposalId, bytes32 msgHash);
+    event ExecuteSignature(uint256 proposalId, address executor);
+
     event DoWithdraw(address token, uint256 amount);
     event CrossWithdraw(address target, address token, uint256 amount);
     event PulledFunds(address moloch, uint256 amount);
@@ -102,7 +128,60 @@ contract Minion is IERC721Receiver {
         emit CrossWithdraw(target, token, amount);
     }
     
+    //  -- Signature Interface --
+    function isValidSignature(bytes32 permissionHash, bytes memory signature)
+        public
+        view
+        override
+        returns (bytes4)
+    {
+        DAOSignature memory daoSignature = signatures[permissionHash];
+        bool[6] memory flags = moloch.getProposalFlags(daoSignature.proposalId);
+        require(flags[2], 'Proposal has not passed');
+        require(daoSignature.signatureHash == keccak256(abi.encodePacked(signature)), 'Invalid signature hash');
+        return daoSignature.magicValue;
+    }
+    
     //  -- Proposal Functions --
+
+    function proposeSignature(
+        bytes32 msgHash,
+        bytes32 signatureHash,
+        bytes4 magicValue,
+        string calldata details
+    ) external memberOnly returns (uint256) {
+
+        uint256 proposalId = moloch.submitProposal(
+            address(this),
+            0,
+            0,
+            0,
+            molochDepositToken,
+            0,
+            molochDepositToken,
+            details
+        );
+
+        DAOSignature memory sig = DAOSignature({
+            proposalId: proposalId,
+            signatureHash: signatureHash,
+            magicValue: magicValue,
+            proposer: msg.sender
+        });
+
+        signatures[msgHash] = sig;
+
+        emit ProposeSignature(proposalId, msgHash, msg.sender);
+        return proposalId;
+    }
+
+    function cancelSignature(bytes32 msgHash) external {
+        DAOSignature memory signature = signatures[msgHash];
+        require(msg.sender == signature.proposer, "not proposer");
+        delete signatures[msgHash];
+        emit SignatureCanceled(signature.proposalId, msgHash);
+        moloch.cancelProposal(signature.proposalId);
+    }
     
     function proposeAction(
         address actionTo,
@@ -209,7 +288,7 @@ contract CloneFactory {
     }
 }
 
-contract MinionFactory is CloneFactory {
+contract ERC1271MinionFactory is CloneFactory {
     address payable immutable public template; // fixed template for minion using eip-1167 proxy pattern
     address[] public minionList; 
     mapping (address => AMinion) public minions;
@@ -227,10 +306,10 @@ contract MinionFactory is CloneFactory {
     }
     
     function summonMinion(address moloch, string memory details) external returns (address) {
-        Minion minion = Minion(createClone(template));
+        ERC1271Minion minion = ERC1271Minion(createClone(template));
         
         minion.init(moloch);
-        string memory minionType = "vanilla minion";
+        string memory minionType = "ERC1271 minion";
         
         minions[address(minion)] = AMinion(moloch, details);
         minionList.push(address(minion));
