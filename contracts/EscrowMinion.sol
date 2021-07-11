@@ -123,8 +123,8 @@ contract EscrowMinion is IERC721Receiver {
     struct TributeEscrowAction {
         TributeType[] tributeTypes;
         address[] tokenAddresses;
-        uint256[] tokenIds;
-        uint256[] amounts;
+        uint256[2][] tokenIdsAndAmounts;
+        // uint256[] amounts;
         address vaultAddress; // todo multiple vault destinations?
         address proposer;
         bool executed;
@@ -154,17 +154,17 @@ contract EscrowMinion is IERC721Receiver {
         for (uint256 index = 0; index < action.tributeTypes.length; index++) {
             if (action.tributeTypes[index] == TributeType.ERC721) {
                 IERC721 erc721 = IERC721(action.tokenAddresses[index]);
-                erc721.safeTransferFrom(from, to, action.tokenIds[index]);
+                erc721.safeTransferFrom(from, to, action.tokenIdsAndAmounts[0][index]);
             } else if (action.tributeTypes[index] == TributeType.ERC20) {
                 IERC20 erc20 = IERC20(action.tokenAddresses[index]);
-                erc20.transferFrom(from, to, action.amounts[index]);
+                erc20.transferFrom(from, to, action.tokenIdsAndAmounts[1][index]);
             } else if (action.tributeTypes[index] == TributeType.ERC1155) {
                 IERC1155 erc1155 = IERC1155(action.tokenAddresses[index]);
                 erc1155.safeTransferFrom(
                     from,
                     to,
-                    action.tokenIds[index],
-                    action.amounts[index],
+                    action.tokenIdsAndAmounts[0][index],
+                    action.tokenIdsAndAmounts[1][index],
                     ""
                 );
             }
@@ -176,16 +176,16 @@ contract EscrowMinion is IERC721Receiver {
         // add array of erc1155, 721 or 20
         TributeType[] calldata tributeTypes,
         address[] calldata tokenAddresses,
-        uint256[] calldata tokenIds,
-        uint256[] calldata amounts,
+        uint256[2][] calldata tokenIdsAndAmounts,
+        // uint256[] calldata amounts,
         address vaultAddress,
         uint256 proposalId
     ) private {
         TributeEscrowAction memory action = TributeEscrowAction({
             tributeTypes: tributeTypes,
             tokenAddresses: tokenAddresses,
-            tokenIds: tokenIds,
-            amounts: amounts,
+            tokenIdsAndAmounts: tokenIdsAndAmounts,
+            // amounts: amounts,
             vaultAddress: vaultAddress,
             proposer: msg.sender,
             executed: false
@@ -193,6 +193,7 @@ contract EscrowMinion is IERC721Receiver {
 
         actions[molochAddress][proposalId] = action;
         doTransfers(action, msg.sender, address(this));
+        emit ProposeAction(proposalId, msg.sender, molochAddress);
     }
 
     //  -- Proposal Functions --
@@ -200,8 +201,7 @@ contract EscrowMinion is IERC721Receiver {
      * @notice Creates a proposal and moves NFT into escrow
      * @param molochAddress Address of DAO
      * @param tokenAddresses Token contract address
-     * @param tokenIds Token id.
-     * @param amounts Token amounts
+     * @param tokenIdsAndAmounts Token id.
      * @param vaultAddress Address of DAO's NFT vault
      * @param requestAmount Amount of shares requested
      * @param details Info about proposal
@@ -212,8 +212,7 @@ contract EscrowMinion is IERC721Receiver {
         // add array of erc1155, 721 or 20
         TributeType[] calldata tributeTypes,
         address[] calldata tokenAddresses,
-        uint256[] calldata tokenIds,
-        uint256[] calldata amounts,
+        uint256[2][] calldata tokenIdsAndAmounts,
         address vaultAddress,
         uint256 requestAmount, // also request loot or treasury funds
         string calldata details
@@ -225,8 +224,8 @@ contract EscrowMinion is IERC721Receiver {
 
         // require length check
         require(tributeTypes.length == tokenAddresses.length, "!length");
-        require(tributeTypes.length == tokenIds.length, "!length");
-        require(tributeTypes.length == amounts.length, "!length");
+        require(tributeTypes.length == tokenIdsAndAmounts.length, "!length");
+        // require(tributeTypes.length == amounts.length, "!length");
 
         uint256 proposalId = thisMoloch.submitProposal(
             msg.sender,
@@ -244,13 +243,11 @@ contract EscrowMinion is IERC721Receiver {
             molochAddress,
             tributeTypes,
             tokenAddresses,
-            tokenIds,
-            amounts,
+            tokenIdsAndAmounts,
             vaultAddress,
             proposalId
         );
 
-        emit ProposeAction(proposalId, msg.sender, molochAddress);
         return proposalId;
     }
 

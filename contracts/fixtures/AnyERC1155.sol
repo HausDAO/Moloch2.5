@@ -22,7 +22,7 @@ contract AnyERC1155 is ERC1155 {
       _tokenIds.increment();
 
       uint256 id = _tokenIds.current();
-      _mint(to, id, amount);
+      _mint(to, id, amount, '');
 
       return id;
   }
