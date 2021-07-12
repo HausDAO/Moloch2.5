@@ -2,6 +2,7 @@
 
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.7.5;
+pragma abicoder v2;
 
 interface IERC20 { // brief interface for moloch erc20 token txs
     function balanceOf(address who) external view returns (uint256);
@@ -29,6 +30,8 @@ interface IMOLOCH { // brief interface for moloch dao v2
     
     function members(address user) external view returns (address, uint256, uint256, bool, uint256, uint256);
     
+    function memberAddressByDelegateKey(address user) external view returns (address);
+
     function userTokenBalances(address user, address token) external view returns (uint256);
     
     function cancelProposal(uint256 proposalId) external;
@@ -54,15 +57,14 @@ contract NeapolitanMinion is IERC721Receiver {
     mapping(uint256 => Action) public actions; // proposalId => Action
 
     struct Action {
-        uint256 value;
-        address to;
+        bytes32 id;
         address proposer;
         bool executed;
-        bytes data;
     }
 
-    event ProposeAction(uint256 proposalId, address proposer);
-    event ExecuteAction(uint256 proposalId, address executor);
+    event ProposeAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address targets, uint256 values, bytes datas);
+    event ExecuteAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address targets, uint256 values, bytes datas, address executor);
+    
     event DoWithdraw(address token, uint256 amount);
     event CrossWithdraw(address target, address token, uint256 amount);
     event PulledFunds(address moloch, uint256 amount);
@@ -108,14 +110,14 @@ contract NeapolitanMinion is IERC721Receiver {
     //  -- Proposal Functions --
     
     function proposeAction(
-        address actionTo,
-        uint256 actionValue,
-        bytes calldata actionData,
+        address[] calldata actionTos,
+        uint256[] calldata actionValues,
+        bytes[] calldata actionDatas,
         string calldata details
     ) external memberOnly returns (uint256) {
-        // No calls to zero address allows us to check that proxy submitted
-        // the proposal without getting the proposal struct from parent moloch
-        require(actionTo != address(0), "invalid actionTo");
+
+        require(actionTos.length == actionValues.length, "Minion: length mismatch");
+        require(actionTos.length == actionDatas.length, "Minion: length mismatch");
 
         uint256 proposalId = moloch.submitProposal(
             address(this),
@@ -128,38 +130,59 @@ contract NeapolitanMinion is IERC721Receiver {
             details
         );
 
-        Action memory action = Action({
-            value: actionValue,
-            to: actionTo,
-            proposer: msg.sender,
-            executed: false,
-            data: actionData
-        });
+        setAction(proposalId, actionTos, actionValues, actionDatas );
 
-        actions[proposalId] = action;
-
-        emit ProposeAction(proposalId, msg.sender);
         return proposalId;
     }
 
-    function executeAction(uint256 proposalId) external returns (bytes memory) {
+    function setAction(
+        uint256 proposalId,
+        address[] calldata actionTos,
+        uint256[] calldata actionValues,
+        bytes[] calldata actionDatas
+        ) internal {
+        bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
+        Action memory action = Action({
+            id: id,
+            proposer: msg.sender,
+            executed: false
+        });
+        actions[proposalId] = action;
+        for (uint256 i = 0; i < actionTos.length; ++i) {
+            emit ProposeAction(id, proposalId, i, actionTos[i], actionValues[i], actionDatas[i]);
+        }
+        
+    }
+
+    function executeAction(
+        uint256 proposalId,
+        address[] calldata actionTos,
+        uint256[] calldata actionValues,
+        bytes[] calldata actionDatas) external returns (bool) {
         Action memory action = actions[proposalId];
         bool[6] memory flags = moloch.getProposalFlags(proposalId);
+        bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
+        
+        require(id == action.id, "Minion: not a valid operation");
 
-        require(action.to != address(0), "invalid proposalId");
         require(!action.executed, "action executed");
-        require(address(this).balance >= action.value, "insufficient eth");
+        
         require(flags[2], "proposal not passed");
 
         // execute call
         actions[proposalId].executed = true;
-        (bool success, bytes memory retData) = action.to.call{value: action.value}(action.data);
-        require(success, "call failure");
-        emit ExecuteAction(proposalId, msg.sender);
-        return retData;
+        for (uint256 i = 0; i < actionTos.length; ++i) {
+            require(address(this).balance >= actionValues[i], "insufficient native token");
+            (bool success, ) = actionTos[i].call{value: actionValues[i]}(actionDatas[i]);
+            require(success, "call failure");
+            emit ExecuteAction(id, proposalId, i, actionTos[i], actionValues[i], actionDatas[i], msg.sender);
+        }
+
+        return true;
     }
     
-    function cancelAction(uint256 _proposalId) external {
+    function cancelAction(
+        uint256 _proposalId) external {
         Action memory action = actions[_proposalId];
         require(msg.sender == action.proposer, "not proposer");
         delete actions[_proposalId];
@@ -172,11 +195,18 @@ contract NeapolitanMinion is IERC721Receiver {
     function isMember(address user) public view returns (bool) {
         // member only check should check if member or delegate
         
-        (, uint shares,,,,) = moloch.members(user);
+        address memberAddress = moloch.memberAddressByDelegateKey(user);
+        (, uint shares,,,,) = moloch.members(memberAddress);
         return shares > 0;
     }
 
+    function hashOperation(address[] calldata targets, uint256[] calldata values, bytes[] calldata datas) public pure virtual returns (bytes32 hash) {
+        // add salt?
+        return keccak256(abi.encode(targets, values, datas));
+    }
+
     receive() external payable {}
+    fallback() external payable {}
 }
 
 /*
