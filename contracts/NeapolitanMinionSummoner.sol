@@ -27,6 +27,8 @@ interface IMOLOCH { // brief interface for moloch dao v2
     function tokenWhitelist(address token) external view returns (bool);
     
     function getProposalFlags(uint256 proposalId) external view returns (bool[6] memory);
+
+    function getUserTokenBalance(address user, address token) external view returns (uint256);
     
     function members(address user) external view returns (address, uint256, uint256, bool, uint256, uint256);
     
@@ -60,6 +62,8 @@ contract NeapolitanMinion is IERC721Receiver {
         bytes32 id;
         address proposer;
         bool executed;
+        address token;
+        uint256 amount;
     }
 
     event ProposeAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address targets, uint256 values, bytes datas);
@@ -88,7 +92,7 @@ contract NeapolitanMinion is IERC721Receiver {
     
     //  -- Withdraw Functions --
 
-    function doWithdraw(address token, uint256 amount) external memberOnly {
+    function doWithdraw(address token, uint256 amount) public memberOnly {
         moloch.withdrawBalance(token, amount); // withdraw funds from parent moloch
         emit DoWithdraw(token, amount);
     }
@@ -113,6 +117,8 @@ contract NeapolitanMinion is IERC721Receiver {
         address[] calldata actionTos,
         uint256[] calldata actionValues,
         bytes[] calldata actionDatas,
+        address withdrawToken,
+        uint256 withdrawAmount,
         string calldata details
     ) external memberOnly returns (uint256) {
 
@@ -125,12 +131,12 @@ contract NeapolitanMinion is IERC721Receiver {
             0,
             0,
             molochDepositToken,
-            0,
-            molochDepositToken,
+            withdrawAmount,
+            withdrawToken,
             details
         );
 
-        setAction(proposalId, actionTos, actionValues, actionDatas );
+        setAction(proposalId, actionTos, actionValues, actionDatas, withdrawToken, withdrawAmount );
 
         return proposalId;
     }
@@ -139,13 +145,17 @@ contract NeapolitanMinion is IERC721Receiver {
         uint256 proposalId,
         address[] calldata actionTos,
         uint256[] calldata actionValues,
-        bytes[] calldata actionDatas
+        bytes[] calldata actionDatas,
+        address withdrawToken,
+        uint256 withdrawAmount
         ) internal {
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
         Action memory action = Action({
             id: id,
             proposer: msg.sender,
-            executed: false
+            executed: false,
+            token: withdrawToken,
+            amount: withdrawAmount
         });
         actions[proposalId] = action;
         for (uint256 i = 0; i < actionTos.length; ++i) {
@@ -162,6 +172,10 @@ contract NeapolitanMinion is IERC721Receiver {
         Action memory action = actions[proposalId];
         bool[6] memory flags = moloch.getProposalFlags(proposalId);
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
+
+        if(moloch.getUserTokenBalance(address(this), action.token) >= action.amount) {
+            doWithdraw(action.token, action.amount);
+        }
         
         require(id == action.id, "Minion: not a valid operation");
 

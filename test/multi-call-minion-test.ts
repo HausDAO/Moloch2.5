@@ -107,7 +107,7 @@ describe('Multi-call Minion', function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
-        await neapolitanMinion.proposeAction([anyErc20.address, anyErc20.address], [0, 0], [action_1, action_2], 'test')
+        await neapolitanMinion.proposeAction([anyErc20.address, anyErc20.address], [0, 0], [action_1, action_2], anyErc20.address, 10, 'test')
 
         await fastForwardBlocks(1)
         await moloch.sponsorProposal(0)
@@ -131,7 +131,7 @@ describe('Multi-call Minion', function () {
 
         const invalid_action = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 30])
 
-        await neapolitanMinion.proposeAction([anyErc20.address, anyErc20.address], [0, 0], [action_1, action_2], 'test')
+        await neapolitanMinion.proposeAction([anyErc20.address, anyErc20.address], [0, 0], [action_1, action_2], anyErc20.address, 10, 'test')
 
         await fastForwardBlocks(1)
         await moloch.sponsorProposal(0)
