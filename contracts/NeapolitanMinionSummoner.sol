@@ -1,7 +1,7 @@
 // Based on https://github.com/HausDAO/MinionSummoner/blob/main/MinionFactory.sol
 
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.7.5;
+pragma solidity ^0.8.0;
 pragma abicoder v2;
 
 interface IERC20 { // brief interface for moloch erc20 token txs
@@ -25,6 +25,8 @@ interface IMOLOCH { // brief interface for moloch dao v2
     function depositToken() external view returns (address);
     
     function tokenWhitelist(address token) external view returns (bool);
+
+    function totalShares() external view returns (uint256);
     
     function getProposalFlags(uint256 proposalId) external view returns (bool[6] memory);
     
@@ -48,11 +50,31 @@ interface IMOLOCH { // brief interface for moloch dao v2
     ) external returns (uint256);
     
     function withdrawBalance(address token, uint256 amount) external;
+
+    struct Proposal {
+        address applicant; // the applicant who wishes to become a member - this key will be used for withdrawals (doubles as guild kick target for gkick proposals)
+        address proposer; // the account that submitted the proposal (can be non-member)
+        address sponsor; // the member that sponsored the proposal (moving it into the queue)
+        uint256 sharesRequested; // the # of shares the applicant is requesting
+        uint256 lootRequested; // the amount of loot the applicant is requesting
+        uint256 tributeOffered; // amount of tokens offered as tribute
+        address tributeToken; // tribute token contract reference
+        uint256 paymentRequested; // amount of tokens requested as payment
+        address paymentToken; // payment token contract reference
+        uint256 startingPeriod; // the period in which voting can start for this proposal
+        uint256 yesVotes; // the total number of YES votes for this proposal
+        uint256 noVotes; // the total number of NO votes for this proposal
+        bool[6] flags; // [sponsored, processed, didPass, cancelled, whitelist, guildkick]
+        string details; // proposal details - could be IPFS hash, plaintext, or JSON
+        uint256 maxTotalSharesAndLootAtYesVote; // the maximum # of total shares encountered at a yes vote on this proposal
+    }
+    function proposals(uint256 proposalId) external returns (address, address, address, uint256, uint256, uint256, address, uint256, address, uint256, uint256, uint256);
 }
 
 contract NeapolitanMinion is IERC721Receiver {
     IMOLOCH public moloch;
     address public molochDepositToken;
+    uint256 public minQuorum;
     bool private initialized; // internally tracks deployment under eip-1167 proxy pattern
     mapping(uint256 => Action) public actions; // proposalId => Action
 
@@ -75,9 +97,10 @@ contract NeapolitanMinion is IERC721Receiver {
         _;
     }
 
-    function init(address _moloch) external {
+    function init(address _moloch, uint256 _minQuorum) external {
         require(!initialized, "initialized"); 
         moloch = IMOLOCH(_moloch);
+        minQuorum = _minQuorum;
         molochDepositToken = moloch.depositToken();
         initialized = true; 
     }
@@ -160,15 +183,15 @@ contract NeapolitanMinion is IERC721Receiver {
         uint256[] calldata actionValues,
         bytes[] calldata actionDatas) external returns (bool) {
         Action memory action = actions[proposalId];
-        bool[6] memory flags = moloch.getProposalFlags(proposalId);
+
+        bool isPassed = hasQuorum(proposalId);
+        require(isPassed, "Minion: proposal execution requirements not met");
+
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
-        
         require(id == action.id, "Minion: not a valid operation");
 
         require(!action.executed, "action executed");
         
-        require(flags[2], "proposal not passed");
-
         // execute call
         actions[proposalId].executed = true;
         for (uint256 i = 0; i < actionTos.length; ++i) {
@@ -192,6 +215,25 @@ contract NeapolitanMinion is IERC721Receiver {
     
     //  -- Helper Functions --
     
+    function hasQuorum(uint256 _proposalId) internal returns (bool) {
+        // if met execution can proceed before proposal is processed
+        uint256 totalShares = moloch.totalShares();
+        bool[6] memory flags = moloch.getProposalFlags(_proposalId);
+
+        (, , , , , , , , , , uint256 yesVotes, uint256 noVotes) = moloch.proposals(_proposalId);
+        
+        if (flags[2]) {
+            return true;
+        }
+
+        if (minQuorum != 0) {
+            uint256 quorum = yesVotes * 100 / totalShares;
+            // if quorum is set it must be met and there can be no NO votes
+            return quorum >= minQuorum && noVotes < 1;  
+        }
+        
+        return false;
+    }
     function isMember(address user) public view returns (bool) {
         // member only check should check if member or delegate
         
@@ -209,29 +251,9 @@ contract NeapolitanMinion is IERC721Receiver {
     fallback() external payable {}
 }
 
-/*
-The MIT License (MIT)
-Copyright (c) 2018 Murray Software, LLC.
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
 contract CloneFactory {
     function createClone(address payable target) internal returns (address payable result) { // eip-1167 proxy pattern adapted for payable minion
-        bytes20 targetBytes = bytes20(target);
+        bytes20 targetBytes = bytes20(address(target));
         assembly {
             let clone := mload(0x40)
             mstore(clone, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
@@ -247,7 +269,7 @@ contract NeapolitanMinionFactory is CloneFactory {
     address[] public minionList; 
     mapping (address => AMinion) public minions;
     
-    event SummonMinion(address indexed minion, address indexed moloch, string details, string minionType);
+    event SummonMinion(address indexed minion, address indexed moloch, string details, string minionType, uint256 minQuorum);
     
     struct AMinion {
         address moloch;
@@ -259,15 +281,15 @@ contract NeapolitanMinionFactory is CloneFactory {
         template = _template;
     }
     
-    function summonMinion(address moloch, string memory details) external returns (address) {
+    function summonMinion(address moloch, string memory details, uint256 minQuorum) external returns (address) {
         NeapolitanMinion minion = NeapolitanMinion(createClone(template));
-        
-        minion.init(moloch);
+        require(minQuorum > 0 && minQuorum <= 100, "minQuorum must be between 1-100");
+        minion.init(moloch, minQuorum);
         string memory minionType = "Neapolitan minion";
         
         minions[address(minion)] = AMinion(moloch, details);
         minionList.push(address(minion));
-        emit SummonMinion(address(minion), moloch, details, minionType);
+        emit SummonMinion(address(minion), moloch, details, minionType, minQuorum);
         
         return(address(minion));
         

@@ -24,7 +24,7 @@ interface NeapolitanMinionFactoryInterface extends ethers.utils.Interface {
   functions: {
     "minionList(uint256)": FunctionFragment;
     "minions(address)": FunctionFragment;
-    "summonMinion(address,string)": FunctionFragment;
+    "summonMinion(address,string,uint256)": FunctionFragment;
     "template()": FunctionFragment;
   };
 
@@ -35,7 +35,7 @@ interface NeapolitanMinionFactoryInterface extends ethers.utils.Interface {
   encodeFunctionData(functionFragment: "minions", values: [string]): string;
   encodeFunctionData(
     functionFragment: "summonMinion",
-    values: [string, string]
+    values: [string, string, BigNumberish]
   ): string;
   encodeFunctionData(functionFragment: "template", values?: undefined): string;
 
@@ -48,7 +48,7 @@ interface NeapolitanMinionFactoryInterface extends ethers.utils.Interface {
   decodeFunctionResult(functionFragment: "template", data: BytesLike): Result;
 
   events: {
-    "SummonMinion(address,address,string,string)": EventFragment;
+    "SummonMinion(address,address,string,string,uint256)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "SummonMinion"): EventFragment;
@@ -105,12 +105,14 @@ export class NeapolitanMinionFactory extends Contract {
     summonMinion(
       moloch: string,
       details: string,
+      minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "summonMinion(address,string)"(
+    "summonMinion(address,string,uint256)"(
       moloch: string,
       details: string,
+      minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
@@ -153,12 +155,14 @@ export class NeapolitanMinionFactory extends Contract {
   summonMinion(
     moloch: string,
     details: string,
+    minQuorum: BigNumberish,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "summonMinion(address,string)"(
+  "summonMinion(address,string,uint256)"(
     moloch: string,
     details: string,
+    minQuorum: BigNumberish,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
@@ -197,12 +201,14 @@ export class NeapolitanMinionFactory extends Contract {
     summonMinion(
       moloch: string,
       details: string,
+      minQuorum: BigNumberish,
       overrides?: CallOverrides
     ): Promise<string>;
 
-    "summonMinion(address,string)"(
+    "summonMinion(address,string,uint256)"(
       moloch: string,
       details: string,
+      minQuorum: BigNumberish,
       overrides?: CallOverrides
     ): Promise<string>;
 
@@ -216,7 +222,8 @@ export class NeapolitanMinionFactory extends Contract {
       minion: string | null,
       moloch: string | null,
       details: null,
-      minionType: null
+      minionType: null,
+      minQuorum: null
     ): EventFilter;
   };
 
@@ -241,12 +248,14 @@ export class NeapolitanMinionFactory extends Contract {
     summonMinion(
       moloch: string,
       details: string,
+      minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "summonMinion(address,string)"(
+    "summonMinion(address,string,uint256)"(
       moloch: string,
       details: string,
+      minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
@@ -279,12 +288,14 @@ export class NeapolitanMinionFactory extends Contract {
     summonMinion(
       moloch: string,
       details: string,
+      minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "summonMinion(address,string)"(
+    "summonMinion(address,string,uint256)"(
       moloch: string,
       details: string,
+      minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
