@@ -26,13 +26,14 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     "cancelAction(uint256)": FunctionFragment;
     "crossWithdraw(address,address,uint256,bool)": FunctionFragment;
     "doWithdraw(address,uint256)": FunctionFragment;
-    "executeAction(uint256)": FunctionFragment;
+    "executeAction(uint256,address[],uint256[],bytes[])": FunctionFragment;
+    "hashOperation(address[],uint256[],bytes[])": FunctionFragment;
     "init(address)": FunctionFragment;
     "isMember(address)": FunctionFragment;
     "moloch()": FunctionFragment;
     "molochDepositToken()": FunctionFragment;
     "onERC721Received(address,address,uint256,bytes)": FunctionFragment;
-    "proposeAction(address,uint256,bytes,string)": FunctionFragment;
+    "proposeAction(address[],uint256[],bytes[],string)": FunctionFragment;
   };
 
   encodeFunctionData(
@@ -53,7 +54,11 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "executeAction",
-    values: [BigNumberish]
+    values: [BigNumberish, string[], BigNumberish[], BytesLike[]]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "hashOperation",
+    values: [string[], BigNumberish[], BytesLike[]]
   ): string;
   encodeFunctionData(functionFragment: "init", values: [string]): string;
   encodeFunctionData(functionFragment: "isMember", values: [string]): string;
@@ -68,7 +73,7 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "proposeAction",
-    values: [string, BigNumberish, BytesLike, string]
+    values: [string[], BigNumberish[], BytesLike[], string]
   ): string;
 
   decodeFunctionResult(functionFragment: "actions", data: BytesLike): Result;
@@ -83,6 +88,10 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
   decodeFunctionResult(functionFragment: "doWithdraw", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "executeAction",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "hashOperation",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "init", data: BytesLike): Result;
@@ -105,8 +114,8 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     "ActionCanceled(uint256)": EventFragment;
     "CrossWithdraw(address,address,uint256)": EventFragment;
     "DoWithdraw(address,uint256)": EventFragment;
-    "ExecuteAction(uint256,address)": EventFragment;
-    "ProposeAction(uint256,address)": EventFragment;
+    "ExecuteAction(bytes32,uint256,uint256,address,uint256,bytes,address)": EventFragment;
+    "ProposeAction(bytes32,uint256,uint256,address,uint256,bytes)": EventFragment;
     "PulledFunds(address,uint256)": EventFragment;
   };
 
@@ -136,32 +145,24 @@ export class NeapolitanMinion extends Contract {
       arg0: BigNumberish,
       overrides?: CallOverrides
     ): Promise<{
-      value: BigNumber;
-      to: string;
+      id: string;
       proposer: string;
       executed: boolean;
-      data: string;
-      0: BigNumber;
+      0: string;
       1: string;
-      2: string;
-      3: boolean;
-      4: string;
+      2: boolean;
     }>;
 
     "actions(uint256)"(
       arg0: BigNumberish,
       overrides?: CallOverrides
     ): Promise<{
-      value: BigNumber;
-      to: string;
+      id: string;
       proposer: string;
       executed: boolean;
-      data: string;
-      0: BigNumber;
+      0: string;
       1: string;
-      2: string;
-      3: boolean;
-      4: string;
+      2: boolean;
     }>;
 
     cancelAction(
@@ -204,13 +205,39 @@ export class NeapolitanMinion extends Contract {
 
     executeAction(
       proposalId: BigNumberish,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "executeAction(uint256)"(
+    "executeAction(uint256,address[],uint256[],bytes[])"(
       proposalId: BigNumberish,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       overrides?: Overrides
     ): Promise<ContractTransaction>;
+
+    hashOperation(
+      targets: string[],
+      values: BigNumberish[],
+      datas: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<{
+      hash: string;
+      0: string;
+    }>;
+
+    "hashOperation(address[],uint256[],bytes[])"(
+      targets: string[],
+      values: BigNumberish[],
+      datas: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<{
+      hash: string;
+      0: string;
+    }>;
 
     init(_moloch: string, overrides?: Overrides): Promise<ContractTransaction>;
 
@@ -270,17 +297,17 @@ export class NeapolitanMinion extends Contract {
     }>;
 
     proposeAction(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       details: string,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "proposeAction(address,uint256,bytes,string)"(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
+    "proposeAction(address[],uint256[],bytes[],string)"(
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       details: string,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
@@ -290,32 +317,24 @@ export class NeapolitanMinion extends Contract {
     arg0: BigNumberish,
     overrides?: CallOverrides
   ): Promise<{
-    value: BigNumber;
-    to: string;
+    id: string;
     proposer: string;
     executed: boolean;
-    data: string;
-    0: BigNumber;
+    0: string;
     1: string;
-    2: string;
-    3: boolean;
-    4: string;
+    2: boolean;
   }>;
 
   "actions(uint256)"(
     arg0: BigNumberish,
     overrides?: CallOverrides
   ): Promise<{
-    value: BigNumber;
-    to: string;
+    id: string;
     proposer: string;
     executed: boolean;
-    data: string;
-    0: BigNumber;
+    0: string;
     1: string;
-    2: string;
-    3: boolean;
-    4: string;
+    2: boolean;
   }>;
 
   cancelAction(
@@ -358,13 +377,33 @@ export class NeapolitanMinion extends Contract {
 
   executeAction(
     proposalId: BigNumberish,
+    actionTos: string[],
+    actionValues: BigNumberish[],
+    actionDatas: BytesLike[],
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "executeAction(uint256)"(
+  "executeAction(uint256,address[],uint256[],bytes[])"(
     proposalId: BigNumberish,
+    actionTos: string[],
+    actionValues: BigNumberish[],
+    actionDatas: BytesLike[],
     overrides?: Overrides
   ): Promise<ContractTransaction>;
+
+  hashOperation(
+    targets: string[],
+    values: BigNumberish[],
+    datas: BytesLike[],
+    overrides?: CallOverrides
+  ): Promise<string>;
+
+  "hashOperation(address[],uint256[],bytes[])"(
+    targets: string[],
+    values: BigNumberish[],
+    datas: BytesLike[],
+    overrides?: CallOverrides
+  ): Promise<string>;
 
   init(_moloch: string, overrides?: Overrides): Promise<ContractTransaction>;
 
@@ -405,17 +444,17 @@ export class NeapolitanMinion extends Contract {
   ): Promise<string>;
 
   proposeAction(
-    actionTo: string,
-    actionValue: BigNumberish,
-    actionData: BytesLike,
+    actionTos: string[],
+    actionValues: BigNumberish[],
+    actionDatas: BytesLike[],
     details: string,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "proposeAction(address,uint256,bytes,string)"(
-    actionTo: string,
-    actionValue: BigNumberish,
-    actionData: BytesLike,
+  "proposeAction(address[],uint256[],bytes[],string)"(
+    actionTos: string[],
+    actionValues: BigNumberish[],
+    actionDatas: BytesLike[],
     details: string,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
@@ -425,32 +464,24 @@ export class NeapolitanMinion extends Contract {
       arg0: BigNumberish,
       overrides?: CallOverrides
     ): Promise<{
-      value: BigNumber;
-      to: string;
+      id: string;
       proposer: string;
       executed: boolean;
-      data: string;
-      0: BigNumber;
+      0: string;
       1: string;
-      2: string;
-      3: boolean;
-      4: string;
+      2: boolean;
     }>;
 
     "actions(uint256)"(
       arg0: BigNumberish,
       overrides?: CallOverrides
     ): Promise<{
-      value: BigNumber;
-      to: string;
+      id: string;
       proposer: string;
       executed: boolean;
-      data: string;
-      0: BigNumber;
+      0: string;
       1: string;
-      2: string;
-      3: boolean;
-      4: string;
+      2: boolean;
     }>;
 
     cancelAction(
@@ -493,11 +524,31 @@ export class NeapolitanMinion extends Contract {
 
     executeAction(
       proposalId: BigNumberish,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    "executeAction(uint256,address[],uint256[],bytes[])"(
+      proposalId: BigNumberish,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    hashOperation(
+      targets: string[],
+      values: BigNumberish[],
+      datas: BytesLike[],
       overrides?: CallOverrides
     ): Promise<string>;
 
-    "executeAction(uint256)"(
-      proposalId: BigNumberish,
+    "hashOperation(address[],uint256[],bytes[])"(
+      targets: string[],
+      values: BigNumberish[],
+      datas: BytesLike[],
       overrides?: CallOverrides
     ): Promise<string>;
 
@@ -537,17 +588,17 @@ export class NeapolitanMinion extends Contract {
     ): Promise<string>;
 
     proposeAction(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       details: string,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    "proposeAction(address,uint256,bytes,string)"(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
+    "proposeAction(address[],uint256[],bytes[],string)"(
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       details: string,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
@@ -560,9 +611,24 @@ export class NeapolitanMinion extends Contract {
 
     DoWithdraw(token: null, amount: null): EventFilter;
 
-    ExecuteAction(proposalId: null, executor: null): EventFilter;
+    ExecuteAction(
+      id: BytesLike | null,
+      proposalId: BigNumberish | null,
+      index: null,
+      targets: null,
+      values: null,
+      datas: null,
+      executor: null
+    ): EventFilter;
 
-    ProposeAction(proposalId: null, proposer: null): EventFilter;
+    ProposeAction(
+      id: BytesLike | null,
+      proposalId: BigNumberish | null,
+      index: null,
+      targets: null,
+      values: null,
+      datas: null
+    ): EventFilter;
 
     PulledFunds(moloch: null, amount: null): EventFilter;
   };
@@ -615,12 +681,32 @@ export class NeapolitanMinion extends Contract {
 
     executeAction(
       proposalId: BigNumberish,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "executeAction(uint256)"(
+    "executeAction(uint256,address[],uint256[],bytes[])"(
       proposalId: BigNumberish,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       overrides?: Overrides
+    ): Promise<BigNumber>;
+
+    hashOperation(
+      targets: string[],
+      values: BigNumberish[],
+      datas: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    "hashOperation(address[],uint256[],bytes[])"(
+      targets: string[],
+      values: BigNumberish[],
+      datas: BytesLike[],
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     init(_moloch: string, overrides?: Overrides): Promise<BigNumber>;
@@ -659,17 +745,17 @@ export class NeapolitanMinion extends Contract {
     ): Promise<BigNumber>;
 
     proposeAction(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       details: string,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "proposeAction(address,uint256,bytes,string)"(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
+    "proposeAction(address[],uint256[],bytes[],string)"(
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       details: string,
       overrides?: Overrides
     ): Promise<BigNumber>;
@@ -726,12 +812,32 @@ export class NeapolitanMinion extends Contract {
 
     executeAction(
       proposalId: BigNumberish,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "executeAction(uint256)"(
+    "executeAction(uint256,address[],uint256[],bytes[])"(
       proposalId: BigNumberish,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    hashOperation(
+      targets: string[],
+      values: BigNumberish[],
+      datas: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    "hashOperation(address[],uint256[],bytes[])"(
+      targets: string[],
+      values: BigNumberish[],
+      datas: BytesLike[],
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     init(_moloch: string, overrides?: Overrides): Promise<PopulatedTransaction>;
@@ -780,17 +886,17 @@ export class NeapolitanMinion extends Contract {
     ): Promise<PopulatedTransaction>;
 
     proposeAction(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       details: string,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "proposeAction(address,uint256,bytes,string)"(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
+    "proposeAction(address[],uint256[],bytes[],string)"(
+      actionTos: string[],
+      actionValues: BigNumberish[],
+      actionDatas: BytesLike[],
       details: string,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
