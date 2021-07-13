@@ -28,8 +28,9 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     "doWithdraw(address,uint256)": FunctionFragment;
     "executeAction(uint256,address[],uint256[],bytes[])": FunctionFragment;
     "hashOperation(address[],uint256[],bytes[])": FunctionFragment;
-    "init(address)": FunctionFragment;
+    "init(address,uint256)": FunctionFragment;
     "isMember(address)": FunctionFragment;
+    "minQuorum()": FunctionFragment;
     "moloch()": FunctionFragment;
     "molochDepositToken()": FunctionFragment;
     "onERC721Received(address,address,uint256,bytes)": FunctionFragment;
@@ -60,8 +61,12 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     functionFragment: "hashOperation",
     values: [string[], BigNumberish[], BytesLike[]]
   ): string;
-  encodeFunctionData(functionFragment: "init", values: [string]): string;
+  encodeFunctionData(
+    functionFragment: "init",
+    values: [string, BigNumberish]
+  ): string;
   encodeFunctionData(functionFragment: "isMember", values: [string]): string;
+  encodeFunctionData(functionFragment: "minQuorum", values?: undefined): string;
   encodeFunctionData(functionFragment: "moloch", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "molochDepositToken",
@@ -103,6 +108,7 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "init", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "isMember", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "minQuorum", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "moloch", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "molochDepositToken",
@@ -254,10 +260,15 @@ export class NeapolitanMinion extends Contract {
       0: string;
     }>;
 
-    init(_moloch: string, overrides?: Overrides): Promise<ContractTransaction>;
-
-    "init(address)"(
+    init(
       _moloch: string,
+      _minQuorum: BigNumberish,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    "init(address,uint256)"(
+      _moloch: string,
+      _minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
@@ -273,6 +284,14 @@ export class NeapolitanMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<{
       0: boolean;
+    }>;
+
+    minQuorum(overrides?: CallOverrides): Promise<{
+      0: BigNumber;
+    }>;
+
+    "minQuorum()"(overrides?: CallOverrides): Promise<{
+      0: BigNumber;
     }>;
 
     moloch(overrides?: CallOverrides): Promise<{
@@ -432,10 +451,15 @@ export class NeapolitanMinion extends Contract {
     overrides?: CallOverrides
   ): Promise<string>;
 
-  init(_moloch: string, overrides?: Overrides): Promise<ContractTransaction>;
-
-  "init(address)"(
+  init(
     _moloch: string,
+    _minQuorum: BigNumberish,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  "init(address,uint256)"(
+    _moloch: string,
+    _minQuorum: BigNumberish,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
@@ -445,6 +469,10 @@ export class NeapolitanMinion extends Contract {
     user: string,
     overrides?: CallOverrides
   ): Promise<boolean>;
+
+  minQuorum(overrides?: CallOverrides): Promise<BigNumber>;
+
+  "minQuorum()"(overrides?: CallOverrides): Promise<BigNumber>;
 
   moloch(overrides?: CallOverrides): Promise<string>;
 
@@ -591,9 +619,17 @@ export class NeapolitanMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<string>;
 
-    init(_moloch: string, overrides?: CallOverrides): Promise<void>;
+    init(
+      _moloch: string,
+      _minQuorum: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
 
-    "init(address)"(_moloch: string, overrides?: CallOverrides): Promise<void>;
+    "init(address,uint256)"(
+      _moloch: string,
+      _minQuorum: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
 
     isMember(user: string, overrides?: CallOverrides): Promise<boolean>;
 
@@ -601,6 +637,10 @@ export class NeapolitanMinion extends Contract {
       user: string,
       overrides?: CallOverrides
     ): Promise<boolean>;
+
+    minQuorum(overrides?: CallOverrides): Promise<BigNumber>;
+
+    "minQuorum()"(overrides?: CallOverrides): Promise<BigNumber>;
 
     moloch(overrides?: CallOverrides): Promise<string>;
 
@@ -752,9 +792,17 @@ export class NeapolitanMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    init(_moloch: string, overrides?: Overrides): Promise<BigNumber>;
+    init(
+      _moloch: string,
+      _minQuorum: BigNumberish,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
 
-    "init(address)"(_moloch: string, overrides?: Overrides): Promise<BigNumber>;
+    "init(address,uint256)"(
+      _moloch: string,
+      _minQuorum: BigNumberish,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
 
     isMember(user: string, overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -762,6 +810,10 @@ export class NeapolitanMinion extends Contract {
       user: string,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
+
+    minQuorum(overrides?: CallOverrides): Promise<BigNumber>;
+
+    "minQuorum()"(overrides?: CallOverrides): Promise<BigNumber>;
 
     moloch(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -887,10 +939,15 @@ export class NeapolitanMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
-    init(_moloch: string, overrides?: Overrides): Promise<PopulatedTransaction>;
-
-    "init(address)"(
+    init(
       _moloch: string,
+      _minQuorum: BigNumberish,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    "init(address,uint256)"(
+      _moloch: string,
+      _minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
@@ -903,6 +960,10 @@ export class NeapolitanMinion extends Contract {
       user: string,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
+
+    minQuorum(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    "minQuorum()"(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     moloch(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
