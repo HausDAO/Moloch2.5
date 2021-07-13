@@ -14,9 +14,32 @@ interface IERC20 { // brief interface for moloch erc20 token txs
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
-// TODO add IERC1155Receiver
+
 interface IERC721Receiver {
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external returns (bytes4);
+}
+
+interface IERC1155Receiver {
+
+    function onERC1155Received(
+        address operator,
+        address from,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    )
+        external
+        returns(bytes4);
+
+    function onERC1155BatchReceived(
+        address operator,
+        address from,
+        uint256[] calldata ids,
+        uint256[] calldata values,
+        bytes calldata data
+    )
+        external
+        returns(bytes4);
 }
 
 interface IMOLOCH { // brief interface for moloch dao v2
@@ -73,7 +96,7 @@ interface IMOLOCH { // brief interface for moloch dao v2
     function proposals(uint256 proposalId) external returns (address, address, address, uint256, uint256, uint256, address, uint256, address, uint256, uint256, uint256);
 }
 
-contract NeapolitanMinion is IERC721Receiver {
+contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     IMOLOCH public moloch;
     address public molochDepositToken;
     uint256 public minQuorum;
@@ -112,6 +135,15 @@ contract NeapolitanMinion is IERC721Receiver {
     function onERC721Received (address, address, uint256, bytes calldata) external pure override returns(bytes4) {
         return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
     } 
+
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure override returns(bytes4) {
+        return bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"));
+    }
+
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata) external pure override returns(bytes4)
+    {
+        return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
+    }
     
     //  -- Withdraw Functions --
 
