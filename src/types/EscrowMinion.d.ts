@@ -26,7 +26,7 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
     "cancelAction(uint256,address)": FunctionFragment;
     "executeAction(uint256,address)": FunctionFragment;
     "onERC721Received(address,address,uint256,bytes)": FunctionFragment;
-    "proposeTribute(address,uint8[],address[],uint256[2][],address,uint256,string)": FunctionFragment;
+    "proposeTribute(address,address[],uint256[3][],address,uint256[3],string)": FunctionFragment;
   };
 
   encodeFunctionData(
@@ -49,11 +49,10 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
     functionFragment: "proposeTribute",
     values: [
       string,
-      BigNumberish[],
       string[],
-      [BigNumberish, BigNumberish][],
+      [BigNumberish, BigNumberish, BigNumberish][],
       string,
-      BigNumberish,
+      [BigNumberish, BigNumberish, BigNumberish],
       string
     ]
   ): string;
@@ -173,22 +172,20 @@ export class EscrowMinion extends Contract {
 
     proposeTribute(
       molochAddress: string,
-      tributeTypes: BigNumberish[],
       tokenAddresses: string[],
-      tokenIdsAndAmounts: [BigNumberish, BigNumberish][],
+      typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
       vaultAddress: string,
-      requestAmount: BigNumberish,
+      requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
       details: string,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "proposeTribute(address,uint8[],address[],uint256[2][],address,uint256,string)"(
+    "proposeTribute(address,address[],uint256[3][],address,uint256[3],string)"(
       molochAddress: string,
-      tributeTypes: BigNumberish[],
       tokenAddresses: string[],
-      tokenIdsAndAmounts: [BigNumberish, BigNumberish][],
+      typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
       vaultAddress: string,
-      requestAmount: BigNumberish,
+      requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
       details: string,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
@@ -262,22 +259,20 @@ export class EscrowMinion extends Contract {
 
   proposeTribute(
     molochAddress: string,
-    tributeTypes: BigNumberish[],
     tokenAddresses: string[],
-    tokenIdsAndAmounts: [BigNumberish, BigNumberish][],
+    typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
     vaultAddress: string,
-    requestAmount: BigNumberish,
+    requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
     details: string,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "proposeTribute(address,uint8[],address[],uint256[2][],address,uint256,string)"(
+  "proposeTribute(address,address[],uint256[3][],address,uint256[3],string)"(
     molochAddress: string,
-    tributeTypes: BigNumberish[],
     tokenAddresses: string[],
-    tokenIdsAndAmounts: [BigNumberish, BigNumberish][],
+    typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
     vaultAddress: string,
-    requestAmount: BigNumberish,
+    requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
     details: string,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
@@ -351,22 +346,20 @@ export class EscrowMinion extends Contract {
 
     proposeTribute(
       molochAddress: string,
-      tributeTypes: BigNumberish[],
       tokenAddresses: string[],
-      tokenIdsAndAmounts: [BigNumberish, BigNumberish][],
+      typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
       vaultAddress: string,
-      requestAmount: BigNumberish,
+      requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
       details: string,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    "proposeTribute(address,uint8[],address[],uint256[2][],address,uint256,string)"(
+    "proposeTribute(address,address[],uint256[3][],address,uint256[3],string)"(
       molochAddress: string,
-      tributeTypes: BigNumberish[],
       tokenAddresses: string[],
-      tokenIdsAndAmounts: [BigNumberish, BigNumberish][],
+      typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
       vaultAddress: string,
-      requestAmount: BigNumberish,
+      requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
       details: string,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
@@ -435,22 +428,20 @@ export class EscrowMinion extends Contract {
 
     proposeTribute(
       molochAddress: string,
-      tributeTypes: BigNumberish[],
       tokenAddresses: string[],
-      tokenIdsAndAmounts: [BigNumberish, BigNumberish][],
+      typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
       vaultAddress: string,
-      requestAmount: BigNumberish,
+      requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
       details: string,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "proposeTribute(address,uint8[],address[],uint256[2][],address,uint256,string)"(
+    "proposeTribute(address,address[],uint256[3][],address,uint256[3],string)"(
       molochAddress: string,
-      tributeTypes: BigNumberish[],
       tokenAddresses: string[],
-      tokenIdsAndAmounts: [BigNumberish, BigNumberish][],
+      typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
       vaultAddress: string,
-      requestAmount: BigNumberish,
+      requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
       details: string,
       overrides?: Overrides
     ): Promise<BigNumber>;
@@ -511,22 +502,20 @@ export class EscrowMinion extends Contract {
 
     proposeTribute(
       molochAddress: string,
-      tributeTypes: BigNumberish[],
       tokenAddresses: string[],
-      tokenIdsAndAmounts: [BigNumberish, BigNumberish][],
+      typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
       vaultAddress: string,
-      requestAmount: BigNumberish,
+      requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
       details: string,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "proposeTribute(address,uint8[],address[],uint256[2][],address,uint256,string)"(
+    "proposeTribute(address,address[],uint256[3][],address,uint256[3],string)"(
       molochAddress: string,
-      tributeTypes: BigNumberish[],
       tokenAddresses: string[],
-      tokenIdsAndAmounts: [BigNumberish, BigNumberish][],
+      typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
       vaultAddress: string,
-      requestAmount: BigNumberish,
+      requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
       details: string,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;

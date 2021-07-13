@@ -1,6 +1,7 @@
 import { task, HardhatUserConfig } from "hardhat/config";
 import "@nomiclabs/hardhat-waffle";
 import "@nomiclabs/hardhat-ethers";
+import "hardhat-gas-reporter"
 
 import * as fs from 'fs'
 import "hardhat-typechain";

@@ -115,16 +115,14 @@ contract EscrowMinion is IERC721Receiver {
     mapping(address => mapping(uint256 => TributeEscrowAction)) public actions; // proposalId => Action
 
     enum TributeType {
-        ERC721,
         ERC20,
+        ERC721,
         ERC1155
     }
 
     struct TributeEscrowAction {
-        TributeType[] tributeTypes;
         address[] tokenAddresses;
-        uint256[2][] tokenIdsAndAmounts;
-        // uint256[] amounts;
+        uint256[3][] typesTokenIdsAmounts;
         address vaultAddress; // todo multiple vault destinations?
         address proposer;
         bool executed;
@@ -151,20 +149,25 @@ contract EscrowMinion is IERC721Receiver {
         address from,
         address to
     ) internal {
-        for (uint256 index = 0; index < action.tributeTypes.length; index++) {
-            if (action.tributeTypes[index] == TributeType.ERC721) {
+        for (uint256 index = 0; index < action.typesTokenIdsAmounts.length; index++) {
+            if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC721)) {
                 IERC721 erc721 = IERC721(action.tokenAddresses[index]);
-                erc721.safeTransferFrom(from, to, action.tokenIdsAndAmounts[0][index]);
-            } else if (action.tributeTypes[index] == TributeType.ERC20) {
+                erc721.safeTransferFrom(from, to, action.typesTokenIdsAmounts[index][1]);
+                // erc721.safeTransferFrom(from, to, 1);
+            } else if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC20)) {
                 IERC20 erc20 = IERC20(action.tokenAddresses[index]);
-                erc20.transferFrom(from, to, action.tokenIdsAndAmounts[1][index]);
-            } else if (action.tributeTypes[index] == TributeType.ERC1155) {
+                if (from == address(this)) {
+                    erc20.transfer(to, action.typesTokenIdsAmounts[index][2]);
+                } else {
+                    erc20.transferFrom(from, to, action.typesTokenIdsAmounts[index][2]);
+                }
+            } else if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC1155)) {
                 IERC1155 erc1155 = IERC1155(action.tokenAddresses[index]);
                 erc1155.safeTransferFrom(
                     from,
                     to,
-                    action.tokenIdsAndAmounts[0][index],
-                    action.tokenIdsAndAmounts[1][index],
+                    action.typesTokenIdsAmounts[index][1],
+                    action.typesTokenIdsAmounts[index][2],
                     ""
                 );
             }
@@ -174,18 +177,15 @@ contract EscrowMinion is IERC721Receiver {
     function saveAction(
         address molochAddress,
         // add array of erc1155, 721 or 20
-        TributeType[] calldata tributeTypes,
         address[] calldata tokenAddresses,
-        uint256[2][] calldata tokenIdsAndAmounts,
+        uint256[3][] calldata typesTokenIdsAmounts,
         // uint256[] calldata amounts,
         address vaultAddress,
         uint256 proposalId
     ) private {
         TributeEscrowAction memory action = TributeEscrowAction({
-            tributeTypes: tributeTypes,
             tokenAddresses: tokenAddresses,
-            tokenIdsAndAmounts: tokenIdsAndAmounts,
-            // amounts: amounts,
+            typesTokenIdsAmounts: typesTokenIdsAmounts,
             vaultAddress: vaultAddress,
             proposer: msg.sender,
             executed: false
@@ -201,20 +201,19 @@ contract EscrowMinion is IERC721Receiver {
      * @notice Creates a proposal and moves NFT into escrow
      * @param molochAddress Address of DAO
      * @param tokenAddresses Token contract address
-     * @param tokenIdsAndAmounts Token id.
+     * @param typesTokenIdsAmounts Token id.
      * @param vaultAddress Address of DAO's NFT vault
-     * @param requestAmount Amount of shares requested
+     * @param requestSharesLootFunds Amount of shares requested
      * @param details Info about proposal
      */
     // todo no re-entrency
     function proposeTribute(
         address molochAddress,
         // add array of erc1155, 721 or 20
-        TributeType[] calldata tributeTypes,
         address[] calldata tokenAddresses,
-        uint256[2][] calldata tokenIdsAndAmounts,
+        uint256[3][] calldata typesTokenIdsAmounts,
         address vaultAddress,
-        uint256 requestAmount, // also request loot or treasury funds
+        uint256[3] calldata requestSharesLootFunds, // also request loot or treasury funds
         string calldata details
     ) external returns (uint256) {
         IMOLOCH thisMoloch = IMOLOCH(molochAddress);
@@ -223,27 +222,24 @@ contract EscrowMinion is IERC721Receiver {
         require(vaultAddress != address(0), "invalid vaultAddress");
 
         // require length check
-        require(tributeTypes.length == tokenAddresses.length, "!length");
-        require(tributeTypes.length == tokenIdsAndAmounts.length, "!length");
-        // require(tributeTypes.length == amounts.length, "!length");
+        require(typesTokenIdsAmounts.length == tokenAddresses.length, "!length");
 
         uint256 proposalId = thisMoloch.submitProposal(
             msg.sender,
-            requestAmount,
-            0,
+            requestSharesLootFunds[0],
+            requestSharesLootFunds[1],
             0,
             thisMolochDepositToken,
-            0,
+            requestSharesLootFunds[2],
             thisMolochDepositToken,
             details
         );
 
-        // call stack too deep, try hashing the stuff instead
+        // // call stack too deep, try hashing the stuff instead
         saveAction(
             molochAddress,
-            tributeTypes,
             tokenAddresses,
-            tokenIdsAndAmounts,
+            typesTokenIdsAmounts,
             vaultAddress,
             proposalId
         );
