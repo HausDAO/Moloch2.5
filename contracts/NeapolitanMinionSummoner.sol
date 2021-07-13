@@ -173,8 +173,8 @@ contract NeapolitanMinion is IERC721Receiver {
         bool[6] memory flags = moloch.getProposalFlags(proposalId);
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
 
-        if(moloch.getUserTokenBalance(address(this), action.token) >= action.amount) {
-            doWithdraw(action.token, action.amount);
+        if(action.amount > 0) {
+            doWithdraw(action.token, moloch.getUserTokenBalance(address(this), action.token));
         }
         
         require(id == action.id, "Minion: not a valid operation");
