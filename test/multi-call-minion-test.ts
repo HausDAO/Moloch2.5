@@ -107,7 +107,7 @@ describe('Multi-call Minion', function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
-        await neapolitanMinion.proposeAction([anyErc20.address, anyErc20.address], [0, 0], [action_1, action_2], 'test')
+        await neapolitanMinion.proposeAction([anyErc20.address, anyErc20.address], [0, 0], [action_1, action_2], anyErc20.address, 0, 'test')
 
         await fastForwardBlocks(1)
         await moloch.sponsorProposal(0)
@@ -125,13 +125,33 @@ describe('Multi-call Minion', function () {
         expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(470)
       })
 
+      it('It withdraws tokens from treasury when part of the proposal', async function () {
+        const action_1 = anyErc20.interface.encodeFunctionData('approve', [aliceAddress, 10])
+
+        // withdraw 10 anytoken on execute
+        await neapolitanMinion.proposeAction([ anyErc20.address], [0], [action_1], anyErc20.address, 10, 'test')
+
+        await fastForwardBlocks(1)
+        await moloch.sponsorProposal(0)
+
+        await fastForwardBlocks(5)
+        await moloch.submitVote(0, 1)
+
+        await fastForwardBlocks(31)
+
+        await moloch.processProposal(0)
+        expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(500)
+        await neapolitanMinion.executeAction(0, [anyErc20.address], [0], [action_1])
+        expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(510)
+      })
+
       it('Fails if an executed action is different from a proposed action', async function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
         const invalid_action = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 30])
 
-        await neapolitanMinion.proposeAction([anyErc20.address, anyErc20.address], [0, 0], [action_1, action_2], 'test')
+        await neapolitanMinion.proposeAction([anyErc20.address, anyErc20.address], [0, 0], [action_1, action_2], anyErc20.address, 10, 'test')
 
         await fastForwardBlocks(1)
         await moloch.sponsorProposal(0)
