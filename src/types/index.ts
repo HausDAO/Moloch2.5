@@ -17,6 +17,8 @@ export { Erc1271MinionFactoryFactory } from "./Erc1271MinionFactoryFactory";
 export type { Erc1271MinionFactory } from "./Erc1271MinionFactory";
 export { EscrowMinionFactory } from "./EscrowMinionFactory";
 export type { EscrowMinion } from "./EscrowMinion";
+export { AnyErc1155Factory } from "./AnyErc1155Factory";
+export type { AnyErc1155 } from "./AnyErc1155";
 export { AnyErc20Factory } from "./AnyErc20Factory";
 export type { AnyErc20 } from "./AnyErc20";
 export { AnyNftFactory } from "./AnyNftFactory";

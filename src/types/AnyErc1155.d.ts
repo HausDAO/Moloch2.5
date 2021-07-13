@@ -20,12 +20,12 @@ import { BytesLike } from "@ethersproject/bytes";
 import { Listener, Provider } from "@ethersproject/providers";
 import { FunctionFragment, EventFragment, Result } from "@ethersproject/abi";
 
-interface Erc1155PausableInterface extends ethers.utils.Interface {
+interface AnyErc1155Interface extends ethers.utils.Interface {
   functions: {
     "balanceOf(address,uint256)": FunctionFragment;
     "balanceOfBatch(address[],uint256[])": FunctionFragment;
     "isApprovedForAll(address,address)": FunctionFragment;
-    "paused()": FunctionFragment;
+    "mintItem(address,uint256,uint256)": FunctionFragment;
     "safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)": FunctionFragment;
     "safeTransferFrom(address,address,uint256,uint256,bytes)": FunctionFragment;
     "setApprovalForAll(address,bool)": FunctionFragment;
@@ -45,7 +45,10 @@ interface Erc1155PausableInterface extends ethers.utils.Interface {
     functionFragment: "isApprovedForAll",
     values: [string, string]
   ): string;
-  encodeFunctionData(functionFragment: "paused", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "mintItem",
+    values: [string, BigNumberish, BigNumberish]
+  ): string;
   encodeFunctionData(
     functionFragment: "safeBatchTransferFrom",
     values: [string, string, BigNumberish[], BigNumberish[], BytesLike]
@@ -73,7 +76,7 @@ interface Erc1155PausableInterface extends ethers.utils.Interface {
     functionFragment: "isApprovedForAll",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "paused", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "mintItem", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "safeBatchTransferFrom",
     data: BytesLike
@@ -94,22 +97,18 @@ interface Erc1155PausableInterface extends ethers.utils.Interface {
 
   events: {
     "ApprovalForAll(address,address,bool)": EventFragment;
-    "Paused(address)": EventFragment;
     "TransferBatch(address,address,address,uint256[],uint256[])": EventFragment;
     "TransferSingle(address,address,address,uint256,uint256)": EventFragment;
     "URI(string,uint256)": EventFragment;
-    "Unpaused(address)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "ApprovalForAll"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "Paused"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "TransferBatch"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "TransferSingle"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "URI"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "Unpaused"): EventFragment;
 }
 
-export class Erc1155Pausable extends Contract {
+export class AnyErc1155 extends Contract {
   connect(signerOrProvider: Signer | Provider | string): this;
   attach(addressOrName: string): this;
   deployed(): Promise<this>;
@@ -120,7 +119,7 @@ export class Erc1155Pausable extends Contract {
   removeAllListeners(eventName: EventFilter | string): this;
   removeListener(eventName: any, listener: Listener): this;
 
-  interface: Erc1155PausableInterface;
+  interface: AnyErc1155Interface;
 
   functions: {
     balanceOf(
@@ -171,13 +170,19 @@ export class Erc1155Pausable extends Contract {
       0: boolean;
     }>;
 
-    paused(overrides?: CallOverrides): Promise<{
-      0: boolean;
-    }>;
+    mintItem(
+      to: string,
+      id: BigNumberish,
+      amount: BigNumberish,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
 
-    "paused()"(overrides?: CallOverrides): Promise<{
-      0: boolean;
-    }>;
+    "mintItem(address,uint256,uint256)"(
+      to: string,
+      id: BigNumberish,
+      amount: BigNumberish,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
 
     safeBatchTransferFrom(
       from: string,
@@ -292,9 +297,19 @@ export class Erc1155Pausable extends Contract {
     overrides?: CallOverrides
   ): Promise<boolean>;
 
-  paused(overrides?: CallOverrides): Promise<boolean>;
+  mintItem(
+    to: string,
+    id: BigNumberish,
+    amount: BigNumberish,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
 
-  "paused()"(overrides?: CallOverrides): Promise<boolean>;
+  "mintItem(address,uint256,uint256)"(
+    to: string,
+    id: BigNumberish,
+    amount: BigNumberish,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
 
   safeBatchTransferFrom(
     from: string,
@@ -398,9 +413,19 @@ export class Erc1155Pausable extends Contract {
       overrides?: CallOverrides
     ): Promise<boolean>;
 
-    paused(overrides?: CallOverrides): Promise<boolean>;
+    mintItem(
+      to: string,
+      id: BigNumberish,
+      amount: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
-    "paused()"(overrides?: CallOverrides): Promise<boolean>;
+    "mintItem(address,uint256,uint256)"(
+      to: string,
+      id: BigNumberish,
+      amount: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     safeBatchTransferFrom(
       from: string,
@@ -475,8 +500,6 @@ export class Erc1155Pausable extends Contract {
       approved: null
     ): EventFilter;
 
-    Paused(account: null): EventFilter;
-
     TransferBatch(
       operator: string | null,
       from: string | null,
@@ -494,8 +517,6 @@ export class Erc1155Pausable extends Contract {
     ): EventFilter;
 
     URI(value: null, id: BigNumberish | null): EventFilter;
-
-    Unpaused(account: null): EventFilter;
   };
 
   estimateGas: {
@@ -535,9 +556,19 @@ export class Erc1155Pausable extends Contract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    paused(overrides?: CallOverrides): Promise<BigNumber>;
+    mintItem(
+      to: string,
+      id: BigNumberish,
+      amount: BigNumberish,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
 
-    "paused()"(overrides?: CallOverrides): Promise<BigNumber>;
+    "mintItem(address,uint256,uint256)"(
+      to: string,
+      id: BigNumberish,
+      amount: BigNumberish,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
 
     safeBatchTransferFrom(
       from: string,
@@ -642,9 +673,19 @@ export class Erc1155Pausable extends Contract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
-    paused(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+    mintItem(
+      to: string,
+      id: BigNumberish,
+      amount: BigNumberish,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
 
-    "paused()"(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+    "mintItem(address,uint256,uint256)"(
+      to: string,
+      id: BigNumberish,
+      amount: BigNumberish,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
 
     safeBatchTransferFrom(
       from: string,
