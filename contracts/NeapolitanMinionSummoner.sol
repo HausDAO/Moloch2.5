@@ -105,17 +105,18 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
 
     // events consts
 
-    string private constant ERROR_INIT = "Minion: initialized";
-    string private constant ERROR_LENGTH_MISMATCH = "Minion: length mismatch";
-    string private constant ERROR_REQS_NOT_MET = "Minion: proposal execution requirements not met";
-    string private constant ERROR_NOT_VALID = "Minion: not a valid operation";
-    string private constant ERROR_EXECUTED = "Minion: action already executed";
-    string private constant ERROR_FUNDS = "Minion: insufficient native token";
-    string private constant ERROR_CALL_FAIL = "Minion: call failure";
-    string private constant ERROR_NOT_WL = "Minion: not a whitelisted token";
-    string private constant ERROR_TX_FAIL = "Minion: token transfer failed";
-    string private constant ERROR_NOT_PROPOSER = "Minion: not proposer";
-    string private constant ERROR_THIS_ONLY = "Minion: can only be called by this";
+    string private constant ERROR_INIT = "Minion::initialized";
+    string private constant ERROR_LENGTH_MISMATCH = "Minion::length mismatch";
+    string private constant ERROR_REQS_NOT_MET = "Minion::proposal execution requirements not met";
+    string private constant ERROR_NOT_VALID = "Minion::not a valid operation";
+    string private constant ERROR_EXECUTED = "Minion::action already executed";
+    string private constant ERROR_FUNDS = "Minion::insufficient native token";
+    string private constant ERROR_CALL_FAIL = "Minion::call failure";
+    string private constant ERROR_NOT_WL = "Minion::not a whitelisted token";
+    string private constant ERROR_TX_FAIL = "Minion::token transfer failed";
+    string private constant ERROR_NOT_PROPOSER = "Minion::not proposer";
+    string private constant ERROR_THIS_ONLY = "Minion::can only be called by this";
+    string private constant ERROR_MEMBER_ONLY = "Minion::not member";
 
     struct Action {
         bytes32 id;
@@ -133,8 +134,13 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     event PulledFunds(address moloch, uint256 amount);
     event ActionCanceled(uint256 proposalId);
     
-     modifier memberOnly() {
-        require(isMember(msg.sender), "Minion::not member");
+    modifier memberOnly() {
+        require(isMember(msg.sender), ERROR_MEMBER_ONLY);
+        _;
+    }
+
+    modifier thisOnly() {
+        require(msg.sender == address(this), ERROR_THIS_ONLY);
         _;
     }
 
@@ -205,12 +211,12 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
             details
         );
 
-        setAction(proposalId, actionTos, actionValues, actionDatas, withdrawToken, withdrawAmount );
+        saveAction(proposalId, actionTos, actionValues, actionDatas, withdrawToken, withdrawAmount );
 
         return proposalId;
     }
 
-    function setAction(
+    function saveAction(
         uint256 proposalId,
         address[] calldata actionTos,
         uint256[] calldata actionValues,
@@ -276,8 +282,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         moloch.cancelProposal(_proposalId);
     }
 
-    function changeOwner(address _moloch) external returns (bool) {
-        //require(msg.sender == address(this), ERROR_THIS_ONLY);
+    function changeOwner(address _moloch) external thisOnly returns (bool) {
+        // TODO: should we try to verify this is a moloch contract
         moloch = IMOLOCH(_moloch);
         return true;
     }
