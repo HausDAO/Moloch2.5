@@ -13,6 +13,7 @@ use(solidity)
 describe('Multi-call Minion', function () {
   let Moloch: ContractFactory
   let moloch: Moloch
+  let moloch2: Moloch
 
   let molochAsAlice: Moloch
 
@@ -71,9 +72,11 @@ describe('Multi-call Minion', function () {
 
       // deploy Moloch and Minion
       moloch = (await Moloch.deploy()) as Moloch
+      moloch2 = (await Moloch.deploy()) as Moloch
       molochAsAlice = await moloch.connect(alice)
       // 5 block periods, 5 period voting, 1 period grace, 0 proposal deposit, 3 dilution bound, 0 reward, 100 summoner shares, 50 alice shares
       await moloch.init([deployerAddress, aliceAddress, bobAddress], [anyErc20.address], 5, 5, 1, 0, 3, 0, [100, 50, 10])
+      await moloch2.init([deployerAddress, aliceAddress, bobAddress], [anyErc20.address], 5, 5, 1, 0, 3, 0, [100, 50, 10])
 
       // Mint ERC20 to moloch
       await anyErc20.mint(moloch.address, 10000)
@@ -127,10 +130,48 @@ describe('Multi-call Minion', function () {
         expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(470)
       })
 
+      it('Enables to change owner and make a proposal on new moloch', async function () {
+
+        const action_1 = neapolitanMinion.interface.encodeFunctionData('changeOwner', [moloch2.address])
+        
+        await neapolitanMinion.proposeAction([neapolitanMinion.address], [0], [action_1], anyErc20.address, 0, 'test')
+
+        await fastForwardBlocks(1)
+        await moloch.sponsorProposal(0)
+
+        await fastForwardBlocks(5)
+        await moloch.submitVote(0, 1)
+
+        await fastForwardBlocks(31)
+
+        await moloch.processProposal(0)
+        await neapolitanMinion.executeAction(0, [neapolitanMinion.address], [0], [action_1])
+        
+        expect(await neapolitanMinion.moloch()).to.equal(moloch2.address)
+
+        const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
+        const action_3 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
+        await neapolitanMinion.proposeAction([anyErc20.address, anyErc20.address], [0, 0], [action_2, action_3], anyErc20.address, 0, 'test')
+
+        await fastForwardBlocks(1)
+        await moloch2.sponsorProposal(0)
+
+        await fastForwardBlocks(5)
+        await moloch2.submitVote(0, 1)
+
+        await fastForwardBlocks(5)
+
+        // execute before proposal is processed
+
+        await neapolitanMinion.executeAction(0, [anyErc20.address, anyErc20.address], [0, 0], [action_2, action_3])
+
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(30)
+        expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(470)
+      })
+
       it('Enables actions to be executed early when minQuorum is met', async function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
-
         await neapolitanMinion.proposeAction([anyErc20.address, anyErc20.address], [0, 0], [action_1, action_2], anyErc20.address, 10, 'test')
 
         await fastForwardBlocks(1)
