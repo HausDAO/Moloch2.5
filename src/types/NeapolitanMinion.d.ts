@@ -24,6 +24,7 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
   functions: {
     "actions(uint256)": FunctionFragment;
     "cancelAction(uint256)": FunctionFragment;
+    "changeOwner(address)": FunctionFragment;
     "crossWithdraw(address,address,uint256,bool)": FunctionFragment;
     "doWithdraw(address,uint256)": FunctionFragment;
     "executeAction(uint256,address[],uint256[],bytes[])": FunctionFragment;
@@ -47,6 +48,7 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     functionFragment: "cancelAction",
     values: [BigNumberish]
   ): string;
+  encodeFunctionData(functionFragment: "changeOwner", values: [string]): string;
   encodeFunctionData(
     functionFragment: "crossWithdraw",
     values: [string, string, BigNumberish, boolean]
@@ -101,6 +103,10 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
   decodeFunctionResult(functionFragment: "actions", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "cancelAction",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "changeOwner",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -211,6 +217,16 @@ export class NeapolitanMinion extends Contract {
 
     "cancelAction(uint256)"(
       _proposalId: BigNumberish,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    changeOwner(
+      _moloch: string,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    "changeOwner(address)"(
+      _moloch: string,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
@@ -455,6 +471,16 @@ export class NeapolitanMinion extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
+  changeOwner(
+    _moloch: string,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  "changeOwner(address)"(
+    _moloch: string,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
   crossWithdraw(
     target: string,
     token: string,
@@ -658,6 +684,13 @@ export class NeapolitanMinion extends Contract {
       _proposalId: BigNumberish,
       overrides?: CallOverrides
     ): Promise<void>;
+
+    changeOwner(_moloch: string, overrides?: CallOverrides): Promise<boolean>;
+
+    "changeOwner(address)"(
+      _moloch: string,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
 
     crossWithdraw(
       target: string,
@@ -868,6 +901,13 @@ export class NeapolitanMinion extends Contract {
       overrides?: Overrides
     ): Promise<BigNumber>;
 
+    changeOwner(_moloch: string, overrides?: Overrides): Promise<BigNumber>;
+
+    "changeOwner(address)"(
+      _moloch: string,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
     crossWithdraw(
       target: string,
       token: string,
@@ -1048,6 +1088,16 @@ export class NeapolitanMinion extends Contract {
 
     "cancelAction(uint256)"(
       _proposalId: BigNumberish,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    changeOwner(
+      _moloch: string,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    "changeOwner(address)"(
+      _moloch: string,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
