@@ -124,6 +124,7 @@ contract DaoConditionalHelper {
 contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     IMOLOCH public moloch;
     address public molochDepositToken;
+    address public module;
     uint256 public minQuorum;
     bool private initialized; // internally tracks deployment under eip-1167 proxy pattern
     mapping(uint256 => Action) public actions; // proposalId => Action
@@ -142,6 +143,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     string private constant ERROR_NOT_PROPOSER = "Minion::not proposer";
     string private constant ERROR_THIS_ONLY = "Minion::can only be called by this";
     string private constant ERROR_MEMBER_ONLY = "Minion::not member";
+    string private constant ERROR_NOT_SPONSORED = "Minion::proposal not sponsored";
 
     struct Action {
         bytes32 id;
@@ -271,8 +273,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         bytes[] calldata actionDatas) external returns (bool) {
         Action memory action = actions[proposalId];
 
-        bool isPassed = hasQuorum(proposalId);
-        require(isPassed, ERROR_REQS_NOT_MET);
+        bool canExecute = isPassed(proposalId);
+        require(canExecute, ERROR_REQS_NOT_MET);
 
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
 
@@ -312,10 +314,15 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         moloch = IMOLOCH(_moloch);
         return true;
     }
+
+    function setModule(address _module) external thisOnly returns (bool) {
+        module = _module;
+        return true;
+    }
     
     //  -- Helper Functions --
     
-    function hasQuorum(uint256 _proposalId) internal returns (bool) {
+    function isPassed(uint256 _proposalId) internal returns (bool) {
         // if met execution can proceed before proposal is processed
         uint256 totalShares = moloch.totalShares();
         bool[6] memory flags = moloch.getProposalFlags(_proposalId);
@@ -323,6 +330,12 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         (, , , , , , , , , , uint256 yesVotes, uint256 noVotes) = moloch.proposals(_proposalId);
         
         if (flags[2]) {
+            // if proposal has passed dao return true
+            return true;
+        }
+
+        if(module != address(0) && msg.sender==module){
+            require(flags[0], ERROR_NOT_SPONSORED);
             return true;
         }
 

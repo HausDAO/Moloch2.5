@@ -549,6 +549,77 @@ describe("Multi-call Minion", function () {
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(20);
         
       });
+
+      it("Enables to set module and module can execute action", async function () {
+        const action_1 = neapolitanMinion.interface.encodeFunctionData(
+          "setModule",
+          [aliceAddress]
+        );
+
+        await neapolitanMinion.proposeAction(
+          [neapolitanMinion.address],
+          [0],
+          [action_1],
+          anyErc20.address,
+          0,
+          "test"
+        );
+
+        await fastForwardBlocks(1);
+        await moloch.sponsorProposal(0);
+
+        await fastForwardBlocks(5);
+        await moloch.submitVote(0, 1);
+
+        await fastForwardBlocks(31);
+
+        await moloch.processProposal(0);
+        await neapolitanMinion.executeAction(
+          0,
+          [neapolitanMinion.address],
+          [0],
+          [action_1]
+        );
+
+        expect(await neapolitanMinion.module()).to.equal(aliceAddress);
+
+        const action_2 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          10,
+        ]);
+        const action_3 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          20,
+        ]);
+        await neapolitanMinion.proposeAction(
+          [anyErc20.address, anyErc20.address],
+          [0, 0],
+          [action_2, action_3],
+          anyErc20.address,
+          0,
+          "test"
+        );
+
+        await fastForwardBlocks(1);
+        await moloch.sponsorProposal(1);
+
+        await fastForwardBlocks(10);
+
+        // execute before proposal is processed
+
+        await neapolitanMinionAsAlice.executeAction(
+          1,
+          [anyErc20.address, anyErc20.address],
+          [0, 0],
+          [action_2, action_3]
+        );
+
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(30);
+        expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(
+          470
+        );
+      });
+      
     });
   });
 });
