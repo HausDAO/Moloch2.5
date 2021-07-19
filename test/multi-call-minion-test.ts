@@ -4,6 +4,7 @@ import { BigNumberish, Contract, ContractFactory } from "ethers";
 import { use, expect } from "chai";
 import { AnyErc20 } from "../src/types/AnyErc20";
 import { Moloch } from "../src/types/Moloch";
+import { DaoConditionalHelper } from "../src/types/DaoConditionalHelper";
 import { NeapolitanMinion } from "../src/types/NeapolitanMinion";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { fastForwardBlocks } from "./util";
@@ -14,6 +15,9 @@ describe("Multi-call Minion", function () {
   let Moloch: ContractFactory;
   let moloch: Moloch;
   let moloch2: Moloch;
+  let DaoConditionalHelper: ContractFactory;
+  let helper: DaoConditionalHelper;
+
 
   let molochAsAlice: Moloch;
 
@@ -45,6 +49,7 @@ describe("Multi-call Minion", function () {
 
   this.beforeAll(async function () {
     Moloch = await ethers.getContractFactory("Moloch");
+    DaoConditionalHelper = await ethers.getContractFactory("DaoConditionalHelper");
     NeapolitanMinion = await ethers.getContractFactory("NeapolitanMinion");
     AnyNft = await ethers.getContractFactory("AnyNFT");
     AnyERC20 = await ethers.getContractFactory("AnyERC20");
@@ -73,6 +78,7 @@ describe("Multi-call Minion", function () {
       // deploy Moloch and Minion
       moloch = (await Moloch.deploy()) as Moloch;
       moloch2 = (await Moloch.deploy()) as Moloch;
+      helper = (await DaoConditionalHelper.deploy()) as DaoConditionalHelper;
       molochAsAlice = await moloch.connect(alice);
       // 5 block periods, 5 period voting, 1 period grace, 0 proposal deposit, 3 dilution bound, 0 reward, 100 summoner shares, 50 alice shares
       await moloch.init(
@@ -406,6 +412,93 @@ describe("Multi-call Minion", function () {
             [action_1, invalid_action]
           )
         ).to.be.revertedWith("Minion::not a valid operation");
+      });
+
+      it("Fails when first actions condition is not meet", async function () {
+        const today = new Date()
+        const tomorrow = new Date(today)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        const action_1 = helper.interface.encodeFunctionData("isAfter", [
+          Math.floor(tomorrow.getTime()  / 1000), // tomorrows data, remove ms
+        ]);
+        const action_2 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          20,
+        ]);
+
+        await neapolitanMinion.proposeAction(
+          [helper.address, anyErc20.address],
+          [0, 0],
+          [action_1, action_2],
+          anyErc20.address,
+          0,
+          "test"
+        );
+
+        await fastForwardBlocks(1);
+        await moloch.sponsorProposal(0);
+
+        await fastForwardBlocks(5);
+        await moloch.submitVote(0, 1);
+
+        await fastForwardBlocks(31);
+
+        await moloch.processProposal(0);
+
+        expect(
+          neapolitanMinion.executeAction(
+            0,
+            [helper.address, anyErc20.address],
+            [0, 0],
+            [action_1, action_2]
+          )
+        ).to.be.revertedWith("Minion::call failure");
+
+        
+      });
+
+      it("Passes when first actions condition is meet", async function () {
+        const today = new Date()
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+        const action_1 = helper.interface.encodeFunctionData("isAfter", [
+          Math.floor(yesterday.getTime() / 1000), // yesterdays date
+        ]);
+        const action_2 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          20,
+        ]);
+
+        await neapolitanMinion.proposeAction(
+          [helper.address, anyErc20.address],
+          [0, 0],
+          [action_1, action_2],
+          anyErc20.address,
+          0,
+          "test"
+        );
+
+        await fastForwardBlocks(1);
+        await moloch.sponsorProposal(0);
+
+        await fastForwardBlocks(5);
+        await moloch.submitVote(0, 1);
+
+        await fastForwardBlocks(31);
+
+        await moloch.processProposal(0);
+
+        await helper.isAfter(Math.floor(yesterday.getTime() / 1000));
+
+        await neapolitanMinion.executeAction(
+            0,
+            [helper.address, anyErc20.address],
+            [0, 0],
+            [action_1, action_2]
+          )
+
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(20);
+        
       });
     });
   });

@@ -27,6 +27,8 @@ export { MolochFactory } from "./MolochFactory";
 export type { Moloch } from "./Moloch";
 export { MolochSummonerFactory } from "./MolochSummonerFactory";
 export type { MolochSummoner } from "./MolochSummoner";
+export { DaoConditionalHelperFactory } from "./DaoConditionalHelperFactory";
+export type { DaoConditionalHelper } from "./DaoConditionalHelper";
 export { NeapolitanMinionFactory } from "./NeapolitanMinionFactory";
 export type { NeapolitanMinion } from "./NeapolitanMinion";
 export { NeapolitanMinionFactoryFactory } from "./NeapolitanMinionFactoryFactory";
