@@ -488,14 +488,63 @@ describe("Multi-call Minion", function () {
 
         await moloch.processProposal(0);
 
-        await helper.isAfter(Math.floor(yesterday.getTime() / 1000));
-
         await neapolitanMinion.executeAction(
             0,
             [helper.address, anyErc20.address],
             [0, 0],
             [action_1, action_2]
           )
+
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(20);
+        
+      });
+
+      it("Enables Buyout proposal type condition", async function () {
+        const action_1 = helper.interface.encodeFunctionData("isNotDaoMember", [
+          aliceAddress,
+          moloch.address
+        ]);
+        const action_2 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          20,
+        ]);
+
+        await neapolitanMinion.proposeAction(
+          [helper.address, anyErc20.address],
+          [0, 0],
+          [action_1, action_2],
+          anyErc20.address,
+          0,
+          "test"
+        );
+
+        await fastForwardBlocks(1);
+        await moloch.sponsorProposal(0);
+
+        await fastForwardBlocks(5);
+        await moloch.submitVote(0, 1);
+
+        await fastForwardBlocks(31);
+
+        await moloch.processProposal(0);
+        // should fail before ragequit
+        expect(
+          neapolitanMinion.executeAction(
+            0,
+            [helper.address, anyErc20.address],
+            [0, 0],
+            [action_1, action_2]
+          )
+        ).to.be.revertedWith("Minion::call failure");
+        
+        await molochAsAlice.ragequit(50,0);
+        // now it should complete successfully
+        await neapolitanMinion.executeAction(
+          0,
+          [helper.address, anyErc20.address],
+          [0, 0],
+          [action_1, action_2]
+        )
 
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(20);
         
