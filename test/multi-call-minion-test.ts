@@ -691,13 +691,13 @@ describe("Multi-call Minion", function () {
         // Bob is not whitelisted
         expect(
           moduleHelperAsBob.executeAction(
-            0,
-            [helper.address, anyErc20.address],
+            1,
+            [anyErc20.address, anyErc20.address],
             [0, 0],
             [action_2, action_3]
           )
         ).to.be.revertedWith("Whitelist Module::Not whitelisted");
-
+        // alice is whitelisted
         await moduleHelperAsAlice.executeAction(
           1,
           [anyErc20.address, anyErc20.address],
