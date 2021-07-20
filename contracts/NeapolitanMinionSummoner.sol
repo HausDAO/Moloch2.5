@@ -218,7 +218,6 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     }
     
     //  -- Withdraw Functions --
-
     function doWithdraw(address token, uint256 amount) public memberOnly {
         moloch.withdrawBalance(token, amount); // withdraw funds from parent moloch
         emit DoWithdraw(token, amount);
@@ -253,7 +252,6 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     }
     
     //  -- Proposal Functions --
-
     function proposeSignature(
         bytes32 msgHash,
         bytes32 signatureHash,
@@ -294,7 +292,6 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     }
     
     //  -- Proposal Functions --
-    
     function proposeAction(
         address[] calldata actionTos,
         uint256[] calldata actionValues,
@@ -366,7 +363,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         require(id == action.id, ERROR_NOT_VALID);
         require(!action.executed, ERROR_EXECUTED);
         
-        // execute call
+        // execute calls
         actions[proposalId].executed = true;
         for (uint256 i = 0; i < actionTos.length; ++i) {
             require(address(this).balance >= actionValues[i], ERROR_FUNDS);
@@ -388,7 +385,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         moloch.cancelProposal(_proposalId);
     }
 
-    // admin functions
+    // -- Admin Functions --
     function changeOwner(address _moloch) external thisOnly returns (bool) {
         // TODO: should we try to verify this is a moloch contract
         moloch = IMOLOCH(_moloch);
@@ -403,7 +400,6 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     }
     
     //  -- Helper Functions --
-    
     function isPassed(uint256 _proposalId) internal returns (bool) {
         // if met execution can proceed before proposal is processed
         uint256 totalShares = moloch.totalShares();
