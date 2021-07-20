@@ -408,3 +408,25 @@ contract NeapolitanMinionFactory is CloneFactory {
         
     }
 }
+
+contract WhitelistModuleHelper {
+
+
+    NeapolitanMinion minion;
+    mapping (address => bool) public whitelist;
+    constructor(address[] memory _whitelist, address payable _minion) {
+        for (uint256 i = 0; i < _whitelist.length; i++){
+            whitelist[_whitelist[i]] = true;
+        }
+        minion = NeapolitanMinion(_minion);
+    }
+
+    function executeAction(
+        uint256 _proposalId,
+        address[] calldata _actionTos,
+        uint256[] calldata _actionValues,
+        bytes[] calldata _actionDatas) public {
+        require(whitelist[msg.sender], "Whitelist Module::Not whitelisted");
+        minion.executeAction(_proposalId, _actionTos, _actionValues, _actionDatas);
+    }
+}
