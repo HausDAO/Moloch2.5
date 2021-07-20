@@ -160,6 +160,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     event CrossWithdraw(address target, address token, uint256 amount);
     event PulledFunds(address moloch, uint256 amount);
     event ActionCanceled(uint256 proposalId);
+    event ChangeOwner(address owner);
+    event SetModule(address module);
     
     modifier memberOnly() {
         require(isMember(msg.sender), ERROR_MEMBER_ONLY);
@@ -279,12 +281,11 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
 
         if(action.amount > 0) {
+            // withdraw token tribute if any
             doWithdraw(action.token, moloch.getUserTokenBalance(address(this), action.token));
         }
         
-
         require(id == action.id, ERROR_NOT_VALID);
-
         require(!action.executed, ERROR_EXECUTED);
         
         // execute call
@@ -309,14 +310,17 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         moloch.cancelProposal(_proposalId);
     }
 
+    // admin functions
     function changeOwner(address _moloch) external thisOnly returns (bool) {
         // TODO: should we try to verify this is a moloch contract
         moloch = IMOLOCH(_moloch);
+        emit ChangeOwner(_moloch);
         return true;
     }
 
     function setModule(address _module) external thisOnly returns (bool) {
         module = _module;
+        emit SetModule(_module);
         return true;
     }
     
@@ -335,6 +339,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         }
 
         if(module != address(0) && msg.sender==module){
+            // if module is set, proposal is sposored and sender is module
             require(flags[0], ERROR_NOT_SPONSORED);
             return true;
         }
@@ -349,14 +354,15 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     }
     function isMember(address user) public view returns (bool) {
         // member only check should check if member or delegate
-        
         address memberAddress = moloch.memberAddressByDelegateKey(user);
         (, uint shares,,,,) = moloch.members(memberAddress);
         return shares > 0;
     }
 
-    function hashOperation(address[] calldata targets, uint256[] calldata values, bytes[] calldata datas) public pure virtual returns (bytes32 hash) {
-        // add salt?
+    function hashOperation(
+        address[] calldata targets, 
+        uint256[] calldata values, 
+        bytes[] calldata datas) public pure virtual returns (bytes32 hash) {
         return keccak256(abi.encode(targets, values, datas));
     }
 
@@ -365,7 +371,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
 }
 
 contract CloneFactory {
-    function createClone(address payable target) internal returns (address payable result) { // eip-1167 proxy pattern adapted for payable minion
+    function createClone(address payable target) internal returns (address payable result) { 
+        // eip-1167 proxy pattern adapted for payable minion
         bytes20 targetBytes = bytes20(address(target));
         assembly {
             let clone := mload(0x40)
@@ -389,12 +396,14 @@ contract NeapolitanMinionFactory is CloneFactory {
         string details; 
     }
     
-    
     constructor(address payable _template) {
         template = _template;
     }
     
-    function summonMinion(address moloch, string memory details, uint256 minQuorum) external returns (address) {
+    function summonMinion(
+        address moloch, 
+        string memory details, 
+        uint256 minQuorum) external returns (address) {
         NeapolitanMinion minion = NeapolitanMinion(createClone(template));
         require(minQuorum > 0 && minQuorum <= 100, "MinionFactory: minQuorum must be between 1-100");
         minion.init(moloch, minQuorum);
