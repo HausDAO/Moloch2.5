@@ -1,6 +1,9 @@
 # MinionSummoner
 Summon All the Minions
 
+<table border="0"><tr>  <td><a href="https://gittron.me/bots/0x8927082e018a34dc7d675896f6741146%22%3E<img src="https://s3.amazonaws.com/od-flat-svg/0x8927082e018a34dc7d675896f6741146.png" alt="gittron" width="50"/></a></td><td><a href="https://gittron.me/bots/0x8927082e018a34dc7d675896f6741146%22%3ESUPPORT US WITH GITTRON</a></td></tr></table>
+
+
 ## Summoning 
 Summon a minion for your DAO, give it a name, just 'cause this is a vanilla minion (the OG) doesn't mean it doesn't deserve some spice. 
 
