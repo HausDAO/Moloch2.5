@@ -5,6 +5,7 @@ import { use, expect } from "chai";
 import { AnyErc20 } from "../src/types/AnyErc20";
 import { Moloch } from "../src/types/Moloch";
 import { DaoConditionalHelper } from "../src/types/DaoConditionalHelper";
+import { WhitelistModuleHelper } from "../src/types/WhitelistModuleHelper";
 import { NeapolitanMinion } from "../src/types/NeapolitanMinion";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { fastForwardBlocks } from "./util";
@@ -17,6 +18,8 @@ describe("Multi-call Minion", function () {
   let moloch2: Moloch;
   let DaoConditionalHelper: ContractFactory;
   let helper: DaoConditionalHelper;
+  let WhitelistModuleHelper: ContractFactory;
+  let moduleHelper: WhitelistModuleHelper;
 
 
   let molochAsAlice: Moloch;
@@ -25,6 +28,8 @@ describe("Multi-call Minion", function () {
   let neapolitanMinion: NeapolitanMinion;
 
   let neapolitanMinionAsAlice: NeapolitanMinion;
+  let moduleHelperAsAlice: WhitelistModuleHelper;
+  let moduleHelperAsBob: WhitelistModuleHelper;
 
   let AnyNft: ContractFactory;
 
@@ -51,6 +56,7 @@ describe("Multi-call Minion", function () {
     Moloch = await ethers.getContractFactory("Moloch");
     DaoConditionalHelper = await ethers.getContractFactory("DaoConditionalHelper");
     NeapolitanMinion = await ethers.getContractFactory("NeapolitanMinion");
+    WhitelistModuleHelper = await ethers.getContractFactory("WhitelistModuleHelper");
     AnyNft = await ethers.getContractFactory("AnyNFT");
     AnyERC20 = await ethers.getContractFactory("AnyERC20");
     signers = await ethers.getSigners();
@@ -113,6 +119,11 @@ describe("Multi-call Minion", function () {
       neapolitanMinion = (await NeapolitanMinion.deploy()) as NeapolitanMinion;
       await neapolitanMinion.init(moloch.address, minQuorum);
       neapolitanMinionAsAlice = await neapolitanMinion.connect(alice);
+
+      moduleHelper = (await WhitelistModuleHelper
+        .deploy([aliceAddress],neapolitanMinion.address)) as WhitelistModuleHelper;
+      moduleHelperAsAlice = await moduleHelper.connect(alice);
+      moduleHelperAsBob = await moduleHelper.connect(bob);
 
       // send some erc20 to minion
       await anyErc20.mint(neapolitanMinion.address, 500);
@@ -549,6 +560,157 @@ describe("Multi-call Minion", function () {
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(20);
         
       });
+
+      it("Enables to set module and module can execute action", async function () {
+        const action_1 = neapolitanMinion.interface.encodeFunctionData(
+          "setModule",
+          [aliceAddress]
+        );
+
+        await neapolitanMinion.proposeAction(
+          [neapolitanMinion.address],
+          [0],
+          [action_1],
+          anyErc20.address,
+          0,
+          "test"
+        );
+
+        await fastForwardBlocks(1);
+        await moloch.sponsorProposal(0);
+
+        await fastForwardBlocks(5);
+        await moloch.submitVote(0, 1);
+
+        await fastForwardBlocks(31);
+
+        await moloch.processProposal(0);
+        await neapolitanMinion.executeAction(
+          0,
+          [neapolitanMinion.address],
+          [0],
+          [action_1]
+        );
+
+        expect(await neapolitanMinion.module()).to.equal(aliceAddress);
+
+        const action_2 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          10,
+        ]);
+        const action_3 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          20,
+        ]);
+        await neapolitanMinion.proposeAction(
+          [anyErc20.address, anyErc20.address],
+          [0, 0],
+          [action_2, action_3],
+          anyErc20.address,
+          0,
+          "test"
+        );
+
+        await fastForwardBlocks(1);
+        await moloch.sponsorProposal(1);
+
+        await fastForwardBlocks(10);
+
+        // execute before proposal is processed
+
+        await neapolitanMinionAsAlice.executeAction(
+          1,
+          [anyErc20.address, anyErc20.address],
+          [0, 0],
+          [action_2, action_3]
+        );
+
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(30);
+        expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(
+          470
+        );
+      });
+
+      it("Enables to set whitelist module and module can execute action", async function () {
+        const action_1 = neapolitanMinion.interface.encodeFunctionData(
+          "setModule",
+          [moduleHelper.address]
+        );
+
+        await neapolitanMinion.proposeAction(
+          [neapolitanMinion.address],
+          [0],
+          [action_1],
+          anyErc20.address,
+          0,
+          "test"
+        );
+
+        await fastForwardBlocks(1);
+        await moloch.sponsorProposal(0);
+
+        await fastForwardBlocks(5);
+        await moloch.submitVote(0, 1);
+
+        await fastForwardBlocks(31);
+
+        await moloch.processProposal(0);
+        await neapolitanMinion.executeAction(
+          0,
+          [neapolitanMinion.address],
+          [0],
+          [action_1]
+        );
+
+        expect(await neapolitanMinion.module()).to.equal(moduleHelper.address);
+
+        const action_2 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          10,
+        ]);
+        const action_3 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          20,
+        ]);
+        await neapolitanMinion.proposeAction(
+          [anyErc20.address, anyErc20.address],
+          [0, 0],
+          [action_2, action_3],
+          anyErc20.address,
+          0,
+          "test"
+        );
+
+        await fastForwardBlocks(1);
+        await moloch.sponsorProposal(1);
+
+        await fastForwardBlocks(10);
+
+        // execute before proposal is processed from whitelist module
+
+        // Bob is not whitelisted
+        expect(
+          moduleHelperAsBob.executeAction(
+            1,
+            [anyErc20.address, anyErc20.address],
+            [0, 0],
+            [action_2, action_3]
+          )
+        ).to.be.revertedWith("Whitelist Module::Not whitelisted");
+        // alice is whitelisted
+        await moduleHelperAsAlice.executeAction(
+          1,
+          [anyErc20.address, anyErc20.address],
+          [0, 0],
+          [action_2, action_3]
+        );
+
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(30);
+        expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(
+          470
+        );
+      });
+      
     });
   });
 });
