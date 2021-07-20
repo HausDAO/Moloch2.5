@@ -1,7 +1,6 @@
 # MinionSummoner
 Summon All the Minions
 
-<table border="0"><tr>  <td><a href="https://gittron.me/bots/0x8927082e018a34dc7d675896f6741146%22%3E<img src="https://s3.amazonaws.com/od-flat-svg/0x8927082e018a34dc7d675896f6741146.png" alt="gittron" width="50"/></a></td><td><a href="https://gittron.me/bots/0x8927082e018a34dc7d675896f6741146%22%3ESUPPORT US WITH GITTRON</a></td></tr></table>
 
 
 ## Summoning 
@@ -34,6 +33,7 @@ kovan -
 
 rinkeby -
 
+
 mainnet -
 
 ## Credits
@@ -41,3 +41,10 @@ mainnet -
 Based on the original work done by RaidGuild at [Moloch-Minion](https://github.com/raid-guild/moloch-minion/)
 
 To be used as an extension to the Moloch V2 contracts by MolochVentures [Moloch](https://github.com/MolochVentures/moloch)
+
+
+
+## Gittron
+
+<table border="0"><tr>  <td><a href="https://gittron.me/bots/0x8927082e018a34dc7d675896f6741146%22%3E<img src="https://s3.amazonaws.com/od-flat-svg/0x8927082e018a34dc7d675896f6741146.png" alt="gittron" width="50"/></a></td><td><a href="https://gittron.me/bots/0x8927082e018a34dc7d675896f6741146%22%3ESUPPORT US WITH GITTRON</a></td></tr></table>
+
