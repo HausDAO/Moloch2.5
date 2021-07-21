@@ -217,7 +217,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
     }
     
-    //  -- Withdraw Functions --
+    //  -- Moloch Withdraw Functions --
     function doWithdraw(address token, uint256 amount) public memberOnly {
         moloch.withdrawBalance(token, amount); // withdraw funds from parent moloch
         emit DoWithdraw(token, amount);
@@ -251,7 +251,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         return daoSignature.magicValue;
     }
     
-    //  -- Proposal Functions --
+    //  -- Moloch Proposal Functions --
     function proposeSignature(
         bytes32 msgHash,
         bytes32 signatureHash,
@@ -479,7 +479,7 @@ contract NeapolitanMinionFactory is CloneFactory {
         string memory details, 
         uint256 minQuorum) external returns (address) {
         NeapolitanMinion minion = NeapolitanMinion(createClone(template));
-        require(minQuorum > 0 && minQuorum <= 100, "MinionFactory: minQuorum must be between 1-100");
+        require(minQuorum >= 0 && minQuorum <= 100, "MinionFactory: minQuorum must be 0 to 100");
         minion.init(moloch, minQuorum);
         string memory minionType = "Neapolitan minion";
         
