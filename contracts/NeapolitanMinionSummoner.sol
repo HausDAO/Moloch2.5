@@ -203,6 +203,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         moloch = IMOLOCH(_moloch);
         minQuorum = _minQuorum;
         molochDepositToken = moloch.depositToken();
+        // TODO: should template be initialized or disabled somehow?
         initialized = true; 
         emit ChangeOwner(_moloch);
     }
