@@ -236,11 +236,13 @@ export class NeapolitanMinion extends Contract {
       executed: boolean;
       token: string;
       amount: BigNumber;
+      moloch: string;
       0: string;
       1: string;
       2: boolean;
       3: string;
       4: BigNumber;
+      5: string;
     }>;
 
     "actions(uint256)"(
@@ -252,11 +254,13 @@ export class NeapolitanMinion extends Contract {
       executed: boolean;
       token: string;
       amount: BigNumber;
+      moloch: string;
       0: string;
       1: string;
       2: boolean;
       3: string;
       4: BigNumber;
+      5: string;
     }>;
 
     cancelAction(
@@ -575,11 +579,13 @@ export class NeapolitanMinion extends Contract {
     executed: boolean;
     token: string;
     amount: BigNumber;
+    moloch: string;
     0: string;
     1: string;
     2: boolean;
     3: string;
     4: BigNumber;
+    5: string;
   }>;
 
   "actions(uint256)"(
@@ -591,11 +597,13 @@ export class NeapolitanMinion extends Contract {
     executed: boolean;
     token: string;
     amount: BigNumber;
+    moloch: string;
     0: string;
     1: string;
     2: boolean;
     3: string;
     4: BigNumber;
+    5: string;
   }>;
 
   cancelAction(
@@ -869,11 +877,13 @@ export class NeapolitanMinion extends Contract {
       executed: boolean;
       token: string;
       amount: BigNumber;
+      moloch: string;
       0: string;
       1: string;
       2: boolean;
       3: string;
       4: BigNumber;
+      5: string;
     }>;
 
     "actions(uint256)"(
@@ -885,11 +895,13 @@ export class NeapolitanMinion extends Contract {
       executed: boolean;
       token: string;
       amount: BigNumber;
+      moloch: string;
       0: string;
       1: string;
       2: boolean;
       3: string;
       4: BigNumber;
+      5: string;
     }>;
 
     cancelAction(
@@ -1161,9 +1173,9 @@ export class NeapolitanMinion extends Contract {
       id: BytesLike | null,
       proposalId: BigNumberish | null,
       index: null,
-      targets: null,
-      values: null,
-      datas: null,
+      target: null,
+      value: null,
+      data: null,
       executor: null
     ): EventFilter;
 
@@ -1173,9 +1185,9 @@ export class NeapolitanMinion extends Contract {
       id: BytesLike | null,
       proposalId: BigNumberish | null,
       index: null,
-      targets: null,
-      values: null,
-      datas: null
+      target: null,
+      value: null,
+      data: null
     ): EventFilter;
 
     ProposeSignature(

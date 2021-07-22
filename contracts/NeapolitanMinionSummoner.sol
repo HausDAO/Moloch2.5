@@ -151,6 +151,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     string private constant ERROR_MEMBER_ONLY = "Minion::not member";
     string private constant ERROR_NOT_SPONSORED = "Minion::proposal not sponsored";
     string private constant ERROR_NOT_PASSED = "Minion::proposal has not passed";
+    string private constant ERR_MOLOCH_CHANGED = "Minion::moloch has been changed";
 
     struct Action {
         bytes32 id;
@@ -158,6 +159,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         bool executed;
         address token;
         uint256 amount;
+        address moloch;
     }
 
     struct DAOSignature {
@@ -336,7 +338,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
             proposer: msg.sender,
             executed: false,
             token: withdrawToken,
-            amount: withdrawAmount
+            amount: withdrawAmount,
+            moloch: address(moloch)
         });
         actions[proposalId] = action;
         for (uint256 i = 0; i < actionTos.length; ++i) {
@@ -354,6 +357,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
 
         bool canExecute = isPassed(proposalId);
         require(canExecute, ERROR_REQS_NOT_MET);
+        require(action.moloch == address(moloch), ERR_MOLOCH_CHANGED);
 
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
 
@@ -389,8 +393,11 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
 
     // -- Admin Functions --
     function changeOwner(address _moloch) external thisOnly returns (bool) {
-        // TODO: should we try to verify this is a moloch contract
+        // TODO: this probably will break any unexecuted proposals.
+        // should we just delete any unexecuted actions? (requires new index array)
+        // maybe we need to store moloch address in the action and verify it
         moloch = IMOLOCH(_moloch);
+        molochDepositToken = moloch.depositToken();
         emit ChangeOwner(_moloch);
         return true;
     }
