@@ -168,11 +168,11 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     }
 
     mapping (bytes32 => DAOSignature) public signatures; // msgHash => Signature
-    // todo lookup signature hash by
+    // TODO: lookup signature hash by
     mapping (uint256 => bytes32) msgHashes;
 
-    event ProposeAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address targets, uint256 values, bytes datas);
-    event ExecuteAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address targets, uint256 values, bytes datas, address executor);
+    event ProposeAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address target, uint256 value, bytes data);
+    event ExecuteAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address target, uint256 value, bytes data, address executor);
     
     event DoWithdraw(address token, uint256 amount);
     event CrossWithdraw(address target, address token, uint256 amount);
@@ -202,6 +202,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         minQuorum = _minQuorum;
         molochDepositToken = moloch.depositToken();
         initialized = true; 
+        emit ChangeOwner(_moloch);
     }
 
     function onERC721Received (address, address, uint256, bytes calldata) external pure override returns(bytes4) {
@@ -219,6 +220,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     
     //  -- Moloch Withdraw Functions --
     function doWithdraw(address token, uint256 amount) public memberOnly {
+        // TODO: is there any reason to have this with cross withdraw
         moloch.withdrawBalance(token, amount); // withdraw funds from parent moloch
         emit DoWithdraw(token, amount);
     }
