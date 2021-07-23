@@ -78,7 +78,7 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
   events: {
     "ActionCanceled(uint256,address)": EventFragment;
     "ExecuteAction(uint256,address,address)": EventFragment;
-    "ProposeAction(uint256,address,address)": EventFragment;
+    "ProposeAction(uint256,address,address,address[],uint256[3][],address)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "ActionCanceled"): EventFragment;
@@ -370,7 +370,14 @@ export class EscrowMinion extends Contract {
 
     ExecuteAction(proposalId: null, executor: null, moloch: null): EventFilter;
 
-    ProposeAction(proposalId: null, proposer: null, moloch: null): EventFilter;
+    ProposeAction(
+      proposalId: null,
+      proposer: null,
+      moloch: null,
+      tokenIds: null,
+      typesTokenIdsAmounts: null,
+      destinationVault: null
+    ): EventFilter;
   };
 
   estimateGas: {

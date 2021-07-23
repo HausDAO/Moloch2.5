@@ -128,7 +128,7 @@ contract EscrowMinion is IERC721Receiver {
         bool executed;
     }
 
-    event ProposeAction(uint256 proposalId, address proposer, address moloch);
+    event ProposeAction(uint256 proposalId, address proposer, address moloch, address[] tokenIds, uint256[3][] typesTokenIdsAmounts, address destinationVault);
     event ExecuteAction(uint256 proposalId, address executor, address moloch);
     event ActionCanceled(uint256 proposalId, address moloch);
 
@@ -182,7 +182,7 @@ contract EscrowMinion is IERC721Receiver {
         // uint256[] calldata amounts,
         address vaultAddress,
         uint256 proposalId
-    ) private {
+    ) private returns (TributeEscrowAction memory) {
         TributeEscrowAction memory action = TributeEscrowAction({
             tokenAddresses: tokenAddresses,
             typesTokenIdsAmounts: typesTokenIdsAmounts,
@@ -192,8 +192,8 @@ contract EscrowMinion is IERC721Receiver {
         });
 
         actions[molochAddress][proposalId] = action;
-        doTransfers(action, msg.sender, address(this));
-        emit ProposeAction(proposalId, msg.sender, molochAddress);
+        emit ProposeAction(proposalId, msg.sender, molochAddress, tokenAddresses, typesTokenIdsAmounts, vaultAddress);
+        return action;
     }
 
     //  -- Proposal Functions --
@@ -204,6 +204,7 @@ contract EscrowMinion is IERC721Receiver {
      * @param typesTokenIdsAmounts Token id.
      * @param vaultAddress Address of DAO's NFT vault
      * @param requestSharesLootFunds Amount of shares requested
+     // add funding request token
      * @param details Info about proposal
      */
     // todo no re-entrency
@@ -235,14 +236,15 @@ contract EscrowMinion is IERC721Receiver {
             details
         );
 
-        // // call stack too deep, try hashing the stuff instead
-        saveAction(
+        TributeEscrowAction memory action = saveAction(
             molochAddress,
             tokenAddresses,
             typesTokenIdsAmounts,
             vaultAddress,
             proposalId
         );
+
+        doTransfers(action, msg.sender, address(this));
 
         return proposalId;
     }
