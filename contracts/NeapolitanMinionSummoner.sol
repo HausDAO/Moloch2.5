@@ -4,6 +4,8 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
+// import "hardhat/console.sol";
+
 interface IERC20 { // brief interface for moloch erc20 token txs
     function balanceOf(address who) external view returns (uint256);
     
@@ -96,12 +98,52 @@ interface IMOLOCH { // brief interface for moloch dao v2
     function proposals(uint256 proposalId) external returns (address, address, address, uint256, uint256, uint256, address, uint256, address, uint256, uint256, uint256);
 }
 
+contract DaoConditionalHelper {
+
+    function isDaoMember(address user, address dao) public view {
+        // member only check should check if member or delegate
+        IMOLOCH moloch = IMOLOCH(dao);
+        address memberAddress = moloch.memberAddressByDelegateKey(user);
+        (, uint shares,,,,) = moloch.members(memberAddress);
+        require(shares > 0, "Is Not Dao Member");
+    }
+
+    function isNotDaoMember(address user, address dao) public view {
+        // member only check should check if member or delegate
+        IMOLOCH moloch = IMOLOCH(dao);
+        address memberAddress = moloch.memberAddressByDelegateKey(user);
+        (, uint shares,,,,) = moloch.members(memberAddress);
+        require(shares == 0, "Is Not Dao Member");
+    }
+
+    function isAfter(uint256 timestamp) public view {
+        require(timestamp < block.timestamp, "timestamp not meet");
+    }
+
+}
 contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     IMOLOCH public moloch;
     address public molochDepositToken;
+    address public module;
     uint256 public minQuorum;
     bool private initialized; // internally tracks deployment under eip-1167 proxy pattern
     mapping(uint256 => Action) public actions; // proposalId => Action
+
+    // events consts
+
+    string private constant ERROR_INIT = "Minion::initialized";
+    string private constant ERROR_LENGTH_MISMATCH = "Minion::length mismatch";
+    string private constant ERROR_REQS_NOT_MET = "Minion::proposal execution requirements not met";
+    string private constant ERROR_NOT_VALID = "Minion::not a valid operation";
+    string private constant ERROR_EXECUTED = "Minion::action already executed";
+    string private constant ERROR_FUNDS = "Minion::insufficient native token";
+    string private constant ERROR_CALL_FAIL = "Minion::call failure";
+    string private constant ERROR_NOT_WL = "Minion::not a whitelisted token";
+    string private constant ERROR_TX_FAIL = "Minion::token transfer failed";
+    string private constant ERROR_NOT_PROPOSER = "Minion::not proposer";
+    string private constant ERROR_THIS_ONLY = "Minion::can only be called by this";
+    string private constant ERROR_MEMBER_ONLY = "Minion::not member";
+    string private constant ERROR_NOT_SPONSORED = "Minion::proposal not sponsored";
 
     struct Action {
         bytes32 id;
@@ -118,14 +160,21 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     event CrossWithdraw(address target, address token, uint256 amount);
     event PulledFunds(address moloch, uint256 amount);
     event ActionCanceled(uint256 proposalId);
+    event ChangeOwner(address owner);
+    event SetModule(address module);
     
-     modifier memberOnly() {
-        require(isMember(msg.sender), "Minion::not member");
+    modifier memberOnly() {
+        require(isMember(msg.sender), ERROR_MEMBER_ONLY);
+        _;
+    }
+
+    modifier thisOnly() {
+        require(msg.sender == address(this), ERROR_THIS_ONLY);
         _;
     }
 
     function init(address _moloch, uint256 _minQuorum) external {
-        require(!initialized, "initialized"); 
+        require(!initialized, ERROR_INIT); 
         moloch = IMOLOCH(_moloch);
         minQuorum = _minQuorum;
         molochDepositToken = moloch.depositToken();
@@ -159,8 +208,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         // Transfers token into DAO. 
         if(transfer) {
             bool whitelisted = moloch.tokenWhitelist(token);
-            require(whitelisted, "not a whitelisted token");
-            require(IERC20(token).transfer(address(moloch), amount), "token transfer failed");
+            require(whitelisted, ERROR_NOT_WL);
+            require(IERC20(token).transfer(address(moloch), amount), ERROR_TX_FAIL);
         }
         
         emit CrossWithdraw(target, token, amount);
@@ -177,8 +226,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         string calldata details
     ) external memberOnly returns (uint256) {
 
-        require(actionTos.length == actionValues.length, "Minion: length mismatch");
-        require(actionTos.length == actionDatas.length, "Minion: length mismatch");
+        require(actionTos.length == actionValues.length, ERROR_LENGTH_MISMATCH);
+        require(actionTos.length == actionDatas.length, ERROR_LENGTH_MISMATCH);
 
         uint256 proposalId = moloch.submitProposal(
             address(this),
@@ -191,12 +240,12 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
             details
         );
 
-        setAction(proposalId, actionTos, actionValues, actionDatas, withdrawToken, withdrawAmount );
+        saveAction(proposalId, actionTos, actionValues, actionDatas, withdrawToken, withdrawAmount );
 
         return proposalId;
     }
 
-    function setAction(
+    function saveAction(
         uint256 proposalId,
         address[] calldata actionTos,
         uint256[] calldata actionValues,
@@ -226,28 +275,28 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         bytes[] calldata actionDatas) external returns (bool) {
         Action memory action = actions[proposalId];
 
-        bool isPassed = hasQuorum(proposalId);
-        require(isPassed, "Minion: proposal execution requirements not met");
+        bool canExecute = isPassed(proposalId);
+        require(canExecute, ERROR_REQS_NOT_MET);
 
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
 
         if(action.amount > 0) {
+            // withdraw token tribute if any
             doWithdraw(action.token, moloch.getUserTokenBalance(address(this), action.token));
         }
         
-
-        require(id == action.id, "Minion: not a valid operation");
-
-        require(!action.executed, "action executed");
+        require(id == action.id, ERROR_NOT_VALID);
+        require(!action.executed, ERROR_EXECUTED);
         
         // execute call
         actions[proposalId].executed = true;
         for (uint256 i = 0; i < actionTos.length; ++i) {
-            require(address(this).balance >= actionValues[i], "insufficient native token");
+            require(address(this).balance >= actionValues[i], ERROR_FUNDS);
             (bool success, ) = actionTos[i].call{value: actionValues[i]}(actionDatas[i]);
-            require(success, "call failure");
+            require(success, ERROR_CALL_FAIL);
             emit ExecuteAction(id, proposalId, i, actionTos[i], actionValues[i], actionDatas[i], msg.sender);
         }
+        delete actions[proposalId];
 
         return true;
     }
@@ -255,15 +304,29 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     function cancelAction(
         uint256 _proposalId) external {
         Action memory action = actions[_proposalId];
-        require(msg.sender == action.proposer, "not proposer");
+        require(msg.sender == action.proposer, ERROR_NOT_PROPOSER);
         delete actions[_proposalId];
         emit ActionCanceled(_proposalId);
         moloch.cancelProposal(_proposalId);
     }
+
+    // admin functions
+    function changeOwner(address _moloch) external thisOnly returns (bool) {
+        // TODO: should we try to verify this is a moloch contract
+        moloch = IMOLOCH(_moloch);
+        emit ChangeOwner(_moloch);
+        return true;
+    }
+
+    function setModule(address _module) external thisOnly returns (bool) {
+        module = _module;
+        emit SetModule(_module);
+        return true;
+    }
     
     //  -- Helper Functions --
     
-    function hasQuorum(uint256 _proposalId) internal returns (bool) {
+    function isPassed(uint256 _proposalId) internal returns (bool) {
         // if met execution can proceed before proposal is processed
         uint256 totalShares = moloch.totalShares();
         bool[6] memory flags = moloch.getProposalFlags(_proposalId);
@@ -271,6 +334,13 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         (, , , , , , , , , , uint256 yesVotes, uint256 noVotes) = moloch.proposals(_proposalId);
         
         if (flags[2]) {
+            // if proposal has passed dao return true
+            return true;
+        }
+
+        if(module != address(0) && msg.sender==module){
+            // if module is set, proposal is sposored and sender is module
+            require(flags[0], ERROR_NOT_SPONSORED);
             return true;
         }
 
@@ -284,14 +354,15 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     }
     function isMember(address user) public view returns (bool) {
         // member only check should check if member or delegate
-        
         address memberAddress = moloch.memberAddressByDelegateKey(user);
         (, uint shares,,,,) = moloch.members(memberAddress);
         return shares > 0;
     }
 
-    function hashOperation(address[] calldata targets, uint256[] calldata values, bytes[] calldata datas) public pure virtual returns (bytes32 hash) {
-        // add salt?
+    function hashOperation(
+        address[] calldata targets, 
+        uint256[] calldata values, 
+        bytes[] calldata datas) public pure virtual returns (bytes32 hash) {
         return keccak256(abi.encode(targets, values, datas));
     }
 
@@ -300,7 +371,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
 }
 
 contract CloneFactory {
-    function createClone(address payable target) internal returns (address payable result) { // eip-1167 proxy pattern adapted for payable minion
+    function createClone(address payable target) internal returns (address payable result) { 
+        // eip-1167 proxy pattern adapted for payable minion
         bytes20 targetBytes = bytes20(address(target));
         assembly {
             let clone := mload(0x40)
@@ -324,14 +396,16 @@ contract NeapolitanMinionFactory is CloneFactory {
         string details; 
     }
     
-    
     constructor(address payable _template) {
         template = _template;
     }
     
-    function summonMinion(address moloch, string memory details, uint256 minQuorum) external returns (address) {
+    function summonMinion(
+        address moloch, 
+        string memory details, 
+        uint256 minQuorum) external returns (address) {
         NeapolitanMinion minion = NeapolitanMinion(createClone(template));
-        require(minQuorum > 0 && minQuorum <= 100, "minQuorum must be between 1-100");
+        require(minQuorum > 0 && minQuorum <= 100, "MinionFactory: minQuorum must be between 1-100");
         minion.init(moloch, minQuorum);
         string memory minionType = "Neapolitan minion";
         
@@ -341,5 +415,27 @@ contract NeapolitanMinionFactory is CloneFactory {
         
         return(address(minion));
         
+    }
+}
+
+contract WhitelistModuleHelper {
+
+
+    NeapolitanMinion minion;
+    mapping (address => bool) public whitelist;
+    constructor(address[] memory _whitelist, address payable _minion) {
+        for (uint256 i = 0; i < _whitelist.length; i++){
+            whitelist[_whitelist[i]] = true;
+        }
+        minion = NeapolitanMinion(_minion);
+    }
+
+    function executeAction(
+        uint256 _proposalId,
+        address[] calldata _actionTos,
+        uint256[] calldata _actionValues,
+        bytes[] calldata _actionDatas) public {
+        require(whitelist[msg.sender], "Whitelist Module::Not whitelisted");
+        minion.executeAction(_proposalId, _actionTos, _actionValues, _actionDatas);
     }
 }
