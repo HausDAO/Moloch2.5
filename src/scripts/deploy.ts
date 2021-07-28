@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import { ConditionalMinion } from '../types/ConditionalMinion'
 import { Erc1271Minion } from '../types/Erc1271Minion'
-import { NftEscrowMinion } from '../types/NftEscrowMinion'
+import { EscrowMinion } from '../types/EscrowMinion'
 
 async function main() {
   const accounts = await ethers.getSigners()
@@ -11,14 +11,14 @@ async function main() {
     accounts.map((a) => a.address)
   )
 
-  const EscrowMinionTemplate = await ethers.getContractFactory('NFTEscrowMinion')
+  const EscrowMinionTemplate = await ethers.getContractFactory('EscrowMinion')
   // const ConditionalMinionTemplate = await ethers.getContractFactory('ConditionalMinion')
   // const ConditionalMinionSummoner = await ethers.getContractFactory('ConditionalMinionFactory')
   // const ERC1271MinionTemplate = await ethers.getContractFactory('ERC1271Minion')
   // const ERC1271MinionSummoner = await ethers.getContractFactory('ERC1271MinionFactory')
   console.log('ready for deploy')
 
-  const escrowMinion = (await EscrowMinionTemplate.deploy()) as NftEscrowMinion
+  const escrowMinion = (await EscrowMinionTemplate.deploy()) as EscrowMinion
 
   // const conditionalMinionTemplate = (await ConditionalMinionTemplate.deploy()) as ConditionalMinion
   // const conditionalMinionFactory = await ConditionalMinionSummoner.deploy(conditionalMinionTemplate.address)

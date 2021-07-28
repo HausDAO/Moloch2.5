@@ -113,6 +113,8 @@ interface IMOLOCH {
 
 contract EscrowMinion is IERC721Receiver {
     mapping(address => mapping(uint256 => TributeEscrowAction)) public actions; // proposalId => Action
+    
+    uint256 constant MAX_LENGTH = 10;
 
     enum TributeType {
         ERC20,
@@ -125,10 +127,12 @@ contract EscrowMinion is IERC721Receiver {
         uint256[3][] typesTokenIdsAmounts;
         address vaultAddress; // todo multiple vault destinations?
         address proposer;
+        address molochAddress;
+        uint256 proposalId;
         bool executed;
     }
 
-    event ProposeAction(uint256 proposalId, address proposer, address moloch, address[] tokenIds, uint256[3][] typesTokenIdsAmounts, address destinationVault);
+    event ProposeAction(uint256 proposalId, address proposer, address moloch, address[] tokens, uint256[MAX_LENGTH] types, uint256[MAX_LENGTH] tokenIds, uint256[MAX_LENGTH] amounts, address destinationVault);
     event ExecuteAction(uint256 proposalId, address executor, address moloch);
     event ActionCanceled(uint256 proposalId, address moloch);
 
@@ -188,12 +192,26 @@ contract EscrowMinion is IERC721Receiver {
             typesTokenIdsAmounts: typesTokenIdsAmounts,
             vaultAddress: vaultAddress,
             proposer: msg.sender,
-            executed: false
+            executed: false,
+            molochAddress: molochAddress,
+            proposalId: proposalId
         });
 
         actions[molochAddress][proposalId] = action;
-        emit ProposeAction(proposalId, msg.sender, molochAddress, tokenAddresses, typesTokenIdsAmounts, vaultAddress);
         return action;
+    }
+    
+    function emitProposalEvent(TributeEscrowAction memory action) internal {
+        uint256[MAX_LENGTH] memory types;
+        uint256[MAX_LENGTH] memory tokenIds;
+        uint256[MAX_LENGTH] memory amounts;
+        
+        for (uint256 index = 0; index < action.typesTokenIdsAmounts.length; index++) {
+            types[index] =action.typesTokenIdsAmounts[index][0];
+            tokenIds[index] = action.typesTokenIdsAmounts[index][1];
+            amounts[index] = action.typesTokenIdsAmounts[index][2];
+        }
+        emit ProposeAction(action.proposalId, msg.sender, action.molochAddress, action.tokenAddresses, types, tokenIds, amounts, action.vaultAddress);
     }
 
     //  -- Proposal Functions --
@@ -223,7 +241,9 @@ contract EscrowMinion is IERC721Receiver {
         require(vaultAddress != address(0), "invalid vaultAddress");
 
         // require length check
-        require(typesTokenIdsAmounts.length == tokenAddresses.length, "!length");
+        require(typesTokenIdsAmounts.length == tokenAddresses.length, "!same-length");
+        
+        require(typesTokenIdsAmounts.length <= 10, "!max-length");
 
         uint256 proposalId = thisMoloch.submitProposal(
             msg.sender,
@@ -243,6 +263,8 @@ contract EscrowMinion is IERC721Receiver {
             vaultAddress,
             proposalId
         );
+        
+        emitProposalEvent(action);
 
         doTransfers(action, msg.sender, address(this));
 

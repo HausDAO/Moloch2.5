@@ -78,7 +78,7 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
   events: {
     "ActionCanceled(uint256,address)": EventFragment;
     "ExecuteAction(uint256,address,address)": EventFragment;
-    "ProposeAction(uint256,address,address,address[],uint256[3][],address)": EventFragment;
+    "ProposeAction(uint256,address,address,address[],uint256[10],uint256[10],uint256[10],address)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "ActionCanceled"): EventFragment;
@@ -107,10 +107,14 @@ export class EscrowMinion extends Contract {
     ): Promise<{
       vaultAddress: string;
       proposer: string;
+      molochAddress: string;
+      proposalId: BigNumber;
       executed: boolean;
       0: string;
       1: string;
-      2: boolean;
+      2: string;
+      3: BigNumber;
+      4: boolean;
     }>;
 
     "actions(address,uint256)"(
@@ -120,10 +124,14 @@ export class EscrowMinion extends Contract {
     ): Promise<{
       vaultAddress: string;
       proposer: string;
+      molochAddress: string;
+      proposalId: BigNumber;
       executed: boolean;
       0: string;
       1: string;
-      2: boolean;
+      2: string;
+      3: BigNumber;
+      4: boolean;
     }>;
 
     cancelAction(
@@ -198,10 +206,14 @@ export class EscrowMinion extends Contract {
   ): Promise<{
     vaultAddress: string;
     proposer: string;
+    molochAddress: string;
+    proposalId: BigNumber;
     executed: boolean;
     0: string;
     1: string;
-    2: boolean;
+    2: string;
+    3: BigNumber;
+    4: boolean;
   }>;
 
   "actions(address,uint256)"(
@@ -211,10 +223,14 @@ export class EscrowMinion extends Contract {
   ): Promise<{
     vaultAddress: string;
     proposer: string;
+    molochAddress: string;
+    proposalId: BigNumber;
     executed: boolean;
     0: string;
     1: string;
-    2: boolean;
+    2: string;
+    3: BigNumber;
+    4: boolean;
   }>;
 
   cancelAction(
@@ -285,10 +301,14 @@ export class EscrowMinion extends Contract {
     ): Promise<{
       vaultAddress: string;
       proposer: string;
+      molochAddress: string;
+      proposalId: BigNumber;
       executed: boolean;
       0: string;
       1: string;
-      2: boolean;
+      2: string;
+      3: BigNumber;
+      4: boolean;
     }>;
 
     "actions(address,uint256)"(
@@ -298,10 +318,14 @@ export class EscrowMinion extends Contract {
     ): Promise<{
       vaultAddress: string;
       proposer: string;
+      molochAddress: string;
+      proposalId: BigNumber;
       executed: boolean;
       0: string;
       1: string;
-      2: boolean;
+      2: string;
+      3: BigNumber;
+      4: boolean;
     }>;
 
     cancelAction(
@@ -374,8 +398,10 @@ export class EscrowMinion extends Contract {
       proposalId: null,
       proposer: null,
       moloch: null,
+      tokens: null,
+      types: null,
       tokenIds: null,
-      typesTokenIdsAmounts: null,
+      amounts: null,
       destinationVault: null
     ): EventFilter;
   };
