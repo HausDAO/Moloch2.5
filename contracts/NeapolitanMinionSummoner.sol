@@ -16,6 +16,12 @@ interface IERC20 { // brief interface for moloch erc20 token txs
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
+interface IERC1271 {
+    function isValidSignature(bytes32 _messageHash, bytes memory _signature)
+        external
+        view
+        returns (bytes4 magicValue);
+}
 
 interface IERC721Receiver {
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external returns (bytes4);
@@ -121,7 +127,7 @@ contract DaoConditionalHelper {
     }
 
 }
-contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
+contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     IMOLOCH public moloch;
     address public molochDepositToken;
     address public module;
@@ -144,6 +150,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     string private constant ERROR_THIS_ONLY = "Minion::can only be called by this";
     string private constant ERROR_MEMBER_ONLY = "Minion::not member";
     string private constant ERROR_NOT_SPONSORED = "Minion::proposal not sponsored";
+    string private constant ERROR_NOT_PASSED = "Minion::proposal has not passed";
+    string private constant ERR_MOLOCH_CHANGED = "Minion::moloch has been changed";
 
     struct Action {
         bytes32 id;
@@ -151,15 +159,32 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         bool executed;
         address token;
         uint256 amount;
+        address moloch;
     }
 
-    event ProposeAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address targets, uint256 values, bytes datas);
-    event ExecuteAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address targets, uint256 values, bytes datas, address executor);
+    struct DAOSignature {
+        bytes32 signatureHash;
+        bytes4 magicValue;
+        uint256 proposalId;
+        address proposer;
+    }
+
+    mapping (bytes32 => DAOSignature) public signatures; // msgHash => Signature
+    // TODO: lookup signature hash by
+    mapping (uint256 => bytes32) msgHashes;
+
+    event ProposeAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address target, uint256 value, bytes data);
+    event ExecuteAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address target, uint256 value, bytes data, address executor);
     
     event DoWithdraw(address token, uint256 amount);
     event CrossWithdraw(address target, address token, uint256 amount);
     event PulledFunds(address moloch, uint256 amount);
     event ActionCanceled(uint256 proposalId);
+
+    event ProposeSignature(uint256 proposalId, bytes32 msgHash, address proposer);
+    event SignatureCanceled(uint256 proposalId, bytes32 msgHash);
+    event ExecuteSignature(uint256 proposalId, address executor);
+
     event ChangeOwner(address owner);
     event SetModule(address module);
     
@@ -178,7 +203,9 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         moloch = IMOLOCH(_moloch);
         minQuorum = _minQuorum;
         molochDepositToken = moloch.depositToken();
+        // TODO: should template be initialized or disabled somehow?
         initialized = true; 
+        emit ChangeOwner(_moloch);
     }
 
     function onERC721Received (address, address, uint256, bytes calldata) external pure override returns(bytes4) {
@@ -194,9 +221,9 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
     }
     
-    //  -- Withdraw Functions --
-
+    //  -- Moloch Withdraw Functions --
     function doWithdraw(address token, uint256 amount) public memberOnly {
+        // TODO: is there any reason to have this with cross withdraw
         moloch.withdrawBalance(token, amount); // withdraw funds from parent moloch
         emit DoWithdraw(token, amount);
     }
@@ -214,9 +241,62 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         
         emit CrossWithdraw(target, token, amount);
     }
+
+    //  -- Signature Interface --
+    function isValidSignature(bytes32 permissionHash, bytes memory signature)
+        public
+        view
+        override
+        returns (bytes4)
+    {
+        DAOSignature memory daoSignature = signatures[permissionHash];
+        bool[6] memory flags = moloch.getProposalFlags(daoSignature.proposalId);
+        require(flags[2], ERROR_NOT_PASSED);
+        require(daoSignature.signatureHash == keccak256(abi.encodePacked(signature)), 'Invalid signature hash');
+        return daoSignature.magicValue;
+    }
+    
+    //  -- Moloch Proposal Functions --
+    function proposeSignature(
+        bytes32 msgHash,
+        bytes32 signatureHash,
+        bytes4 magicValue,
+        string calldata details
+    ) external memberOnly returns (uint256) {
+
+        uint256 proposalId = moloch.submitProposal(
+            address(this),
+            0,
+            0,
+            0,
+            molochDepositToken,
+            0,
+            molochDepositToken,
+            details
+        );
+
+        DAOSignature memory sig = DAOSignature({
+            proposalId: proposalId,
+            signatureHash: signatureHash,
+            magicValue: magicValue,
+            proposer: msg.sender
+        });
+
+        signatures[msgHash] = sig;
+
+        emit ProposeSignature(proposalId, msgHash, msg.sender);
+        return proposalId;
+    }
+
+    function cancelSignature(bytes32 msgHash) external {
+        DAOSignature memory signature = signatures[msgHash];
+        require(msg.sender == signature.proposer, "not proposer");
+        delete signatures[msgHash];
+        emit SignatureCanceled(signature.proposalId, msgHash);
+        moloch.cancelProposal(signature.proposalId);
+    }
     
     //  -- Proposal Functions --
-    
     function proposeAction(
         address[] calldata actionTos,
         uint256[] calldata actionValues,
@@ -259,7 +339,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
             proposer: msg.sender,
             executed: false,
             token: withdrawToken,
-            amount: withdrawAmount
+            amount: withdrawAmount,
+            moloch: address(moloch)
         });
         actions[proposalId] = action;
         for (uint256 i = 0; i < actionTos.length; ++i) {
@@ -277,6 +358,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
 
         bool canExecute = isPassed(proposalId);
         require(canExecute, ERROR_REQS_NOT_MET);
+        require(action.moloch == address(moloch), ERR_MOLOCH_CHANGED);
 
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
 
@@ -288,7 +370,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         require(id == action.id, ERROR_NOT_VALID);
         require(!action.executed, ERROR_EXECUTED);
         
-        // execute call
+        // execute calls
         actions[proposalId].executed = true;
         for (uint256 i = 0; i < actionTos.length; ++i) {
             require(address(this).balance >= actionValues[i], ERROR_FUNDS);
@@ -310,10 +392,13 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
         moloch.cancelProposal(_proposalId);
     }
 
-    // admin functions
+    // -- Admin Functions --
     function changeOwner(address _moloch) external thisOnly returns (bool) {
-        // TODO: should we try to verify this is a moloch contract
+        // TODO: this probably will break any unexecuted proposals.
+        // should we just delete any unexecuted actions? (requires new index array)
+        // maybe we need to store moloch address in the action and verify it
         moloch = IMOLOCH(_moloch);
+        molochDepositToken = moloch.depositToken();
         emit ChangeOwner(_moloch);
         return true;
     }
@@ -325,7 +410,6 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver {
     }
     
     //  -- Helper Functions --
-    
     function isPassed(uint256 _proposalId) internal returns (bool) {
         // if met execution can proceed before proposal is processed
         uint256 totalShares = moloch.totalShares();
@@ -405,7 +489,7 @@ contract NeapolitanMinionFactory is CloneFactory {
         string memory details, 
         uint256 minQuorum) external returns (address) {
         NeapolitanMinion minion = NeapolitanMinion(createClone(template));
-        require(minQuorum > 0 && minQuorum <= 100, "MinionFactory: minQuorum must be between 1-100");
+        require(minQuorum >= 0 && minQuorum <= 100, "MinionFactory: minQuorum must be 0 to 100");
         minion.init(moloch, minQuorum);
         string memory minionType = "Neapolitan minion";
         
