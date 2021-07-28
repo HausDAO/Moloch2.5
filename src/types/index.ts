@@ -35,6 +35,8 @@ export { NeapolitanMinionFactoryFactory } from "./NeapolitanMinionFactoryFactory
 export type { NeapolitanMinionFactory } from "./NeapolitanMinionFactory";
 export { WhitelistModuleHelperFactory } from "./WhitelistModuleHelperFactory";
 export type { WhitelistModuleHelper } from "./WhitelistModuleHelper";
+export { NftEscrowMinionFactory } from "./NftEscrowMinionFactory";
+export type { NftEscrowMinion } from "./NftEscrowMinion";
 export { VanillaMinionFactory } from "./VanillaMinionFactory";
 export type { VanillaMinion } from "./VanillaMinion";
 export { VanillaMinionFactoryFactory } from "./VanillaMinionFactoryFactory";

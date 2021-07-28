@@ -111,10 +111,8 @@ interface IMOLOCH {
     function withdrawBalance(address token, uint256 amount) external;
 }
 
-contract EscrowMinion is IERC721Receiver {
+contract NFTEscrowMinion is IERC721Receiver {
     mapping(address => mapping(uint256 => TributeEscrowAction)) public actions; // proposalId => Action
-    
-    uint256 constant MAX_LENGTH = 10;
 
     enum TributeType {
         ERC20,
@@ -123,16 +121,14 @@ contract EscrowMinion is IERC721Receiver {
     }
 
     struct TributeEscrowAction {
-        address[] tokenAddresses;
-        uint256[3][] typesTokenIdsAmounts;
+        address tokenAddress;
+        uint256 tokenId;
         address vaultAddress; // todo multiple vault destinations?
         address proposer;
-        address molochAddress;
-        uint256 proposalId;
         bool executed;
     }
 
-    event ProposeAction(uint256 proposalId, address proposer, address moloch, address[] tokens, uint256[MAX_LENGTH] types, uint256[MAX_LENGTH] tokenIds, uint256[MAX_LENGTH] amounts, address destinationVault);
+    event ProposeAction(uint256 proposalId, address proposer, address moloch, address tokenAddress, uint256 tokenId, address destinationVault);
     event ExecuteAction(uint256 proposalId, address executor, address moloch);
     event ActionCanceled(uint256 proposalId, address moloch);
 
@@ -153,73 +149,35 @@ contract EscrowMinion is IERC721Receiver {
         address from,
         address to
     ) internal {
-        for (uint256 index = 0; index < action.typesTokenIdsAmounts.length; index++) {
-            if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC721)) {
-                IERC721 erc721 = IERC721(action.tokenAddresses[index]);
-                erc721.safeTransferFrom(from, to, action.typesTokenIdsAmounts[index][1]);
-                // erc721.safeTransferFrom(from, to, 1);
-            } else if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC20)) {
-                IERC20 erc20 = IERC20(action.tokenAddresses[index]);
-                if (from == address(this)) {
-                    erc20.transfer(to, action.typesTokenIdsAmounts[index][2]);
-                } else {
-                    erc20.transferFrom(from, to, action.typesTokenIdsAmounts[index][2]);
-                }
-            } else if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC1155)) {
-                IERC1155 erc1155 = IERC1155(action.tokenAddresses[index]);
-                erc1155.safeTransferFrom(
-                    from,
-                    to,
-                    action.typesTokenIdsAmounts[index][1],
-                    action.typesTokenIdsAmounts[index][2],
-                    ""
-                );
-            }
-        }
+        IERC721 erc721 = IERC721(action.tokenAddress);
+        erc721.safeTransferFrom(from, to, action.tokenId);
     }
 
     function saveAction(
         address molochAddress,
-        // add array of erc1155, 721 or 20
-        address[] calldata tokenAddresses,
-        uint256[3][] calldata typesTokenIdsAmounts,
+        address tokenAddress,
+        uint256 tokenId,
         // uint256[] calldata amounts,
         address vaultAddress,
         uint256 proposalId
     ) private returns (TributeEscrowAction memory) {
         TributeEscrowAction memory action = TributeEscrowAction({
-            tokenAddresses: tokenAddresses,
-            typesTokenIdsAmounts: typesTokenIdsAmounts,
+            tokenAddress: tokenAddress,
+            tokenId: tokenId,
             vaultAddress: vaultAddress,
             proposer: msg.sender,
-            executed: false,
-            molochAddress: molochAddress,
-            proposalId: proposalId
+            executed: false
         });
 
         actions[molochAddress][proposalId] = action;
+        emit ProposeAction(proposalId, msg.sender, molochAddress, tokenAddress, tokenId, vaultAddress);
         return action;
-    }
-    
-    function emitProposalEvent(TributeEscrowAction memory action) internal {
-        uint256[MAX_LENGTH] memory types;
-        uint256[MAX_LENGTH] memory tokenIds;
-        uint256[MAX_LENGTH] memory amounts;
-        
-        for (uint256 index = 0; index < action.typesTokenIdsAmounts.length; index++) {
-            types[index] =action.typesTokenIdsAmounts[index][0];
-            tokenIds[index] = action.typesTokenIdsAmounts[index][1];
-            amounts[index] = action.typesTokenIdsAmounts[index][2];
-        }
-        emit ProposeAction(action.proposalId, msg.sender, action.molochAddress, action.tokenAddresses, types, tokenIds, amounts, action.vaultAddress);
     }
 
     //  -- Proposal Functions --
     /**
      * @notice Creates a proposal and moves NFT into escrow
      * @param molochAddress Address of DAO
-     * @param tokenAddresses Token contract address
-     * @param typesTokenIdsAmounts Token id.
      * @param vaultAddress Address of DAO's NFT vault
      * @param requestSharesLootFunds Amount of shares requested
      // add funding request token
@@ -229,8 +187,8 @@ contract EscrowMinion is IERC721Receiver {
     function proposeTribute(
         address molochAddress,
         // add array of erc1155, 721 or 20
-        address[] calldata tokenAddresses,
-        uint256[3][] calldata typesTokenIdsAmounts,
+        address tokenAddress,
+        uint256 tokenId,
         address vaultAddress,
         uint256[3] calldata requestSharesLootFunds, // also request loot or treasury funds
         string calldata details
@@ -239,11 +197,6 @@ contract EscrowMinion is IERC721Receiver {
         address thisMolochDepositToken = thisMoloch.depositToken();
 
         require(vaultAddress != address(0), "invalid vaultAddress");
-
-        // require length check
-        require(typesTokenIdsAmounts.length == tokenAddresses.length, "!same-length");
-        
-        require(typesTokenIdsAmounts.length <= 10, "!max-length");
 
         uint256 proposalId = thisMoloch.submitProposal(
             msg.sender,
@@ -258,13 +211,11 @@ contract EscrowMinion is IERC721Receiver {
 
         TributeEscrowAction memory action = saveAction(
             molochAddress,
-            tokenAddresses,
-            typesTokenIdsAmounts,
+            tokenAddress,
+            tokenId,
             vaultAddress,
             proposalId
         );
-        
-        emitProposalEvent(action);
 
         doTransfers(action, msg.sender, address(this));
 
