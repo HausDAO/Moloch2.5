@@ -8,7 +8,7 @@ import { DaoConditionalHelper } from "../src/types/DaoConditionalHelper";
 import { WhitelistModuleHelper } from "../src/types/WhitelistModuleHelper";
 import { NeapolitanMinion } from "../src/types/NeapolitanMinion";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { fastForwardBlocks } from "./util";
+import { doProposal, fastForwardBlocks } from "./util";
 
 use(solidity);
 
@@ -28,6 +28,7 @@ describe("Multi-call Minion", function () {
   let neapolitanMinion: NeapolitanMinion;
 
   let neapolitanMinionAsAlice: NeapolitanMinion;
+  let neapolitanMinionAsCeleste: NeapolitanMinion;
   let moduleHelperAsAlice: WhitelistModuleHelper;
   let moduleHelperAsBob: WhitelistModuleHelper;
 
@@ -41,6 +42,7 @@ describe("Multi-call Minion", function () {
   let deployer: SignerWithAddress;
   let alice: SignerWithAddress;
   let bob: SignerWithAddress;
+  let celeste: SignerWithAddress;
 
   const zeroAddress = "0x0000000000000000000000000000000000000000";
   let totalAccountingAddress: string;
@@ -63,6 +65,7 @@ describe("Multi-call Minion", function () {
     deployer = signers[0];
     alice = signers[1];
     bob = signers[2];
+    celeste = signers[2];
 
     deployerAddress = deployer.address;
     aliceAddress = alice.address;
@@ -119,6 +122,7 @@ describe("Multi-call Minion", function () {
       neapolitanMinion = (await NeapolitanMinion.deploy()) as NeapolitanMinion;
       await neapolitanMinion.init(moloch.address, minQuorum);
       neapolitanMinionAsAlice = await neapolitanMinion.connect(alice);
+      neapolitanMinionAsCeleste = await neapolitanMinion.connect(celeste)
 
       moduleHelper = (await WhitelistModuleHelper
         .deploy([aliceAddress],neapolitanMinion.address)) as WhitelistModuleHelper;
@@ -147,6 +151,72 @@ describe("Multi-call Minion", function () {
       expect((await moloch.members(aliceAddress)).shares).to.equal(50);
       expect((await moloch.members(deployerAddress)).shares).to.equal(100);
     });
+    
+    describe("Permissions", function() {
+      it("Allows member to execute", async function () {
+        const action_1 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          10,
+        ]);
+
+        await neapolitanMinion.proposeAction(
+          [anyErc20.address],
+          [0],
+          [action_1],
+          anyErc20.address,
+          0,
+          "test"
+        );
+        
+        await doProposal(true, 0, moloch)
+
+
+        await neapolitanMinion.executeAction(
+          0,
+          [anyErc20.address],
+          [0],
+          [action_1]
+        );
+
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(10);
+        expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(
+          490
+        );
+      });
+
+      it("Does not allow anyone else to execute", async function () {
+        const action_1 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          10,
+        ]);
+
+        await neapolitanMinion.proposeAction(
+          [anyErc20.address],
+          [0],
+          [action_1],
+          anyErc20.address,
+          0,
+          "test"
+        );
+        
+        await doProposal(true, 0, moloch)
+
+
+        expect(neapolitanMinionAsCeleste.executeAction(
+          0,
+          [anyErc20.address],
+          [0],
+          [action_1]
+        )).to.be.revertedWith('Minion::not member')
+
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0);
+        expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(
+          500
+        );
+      });
+
+
+    })
 
     describe("Multi-call", function () {
       it("Enables 2 actions to be associated with one proposal", async function () {
@@ -168,15 +238,7 @@ describe("Multi-call Minion", function () {
           "test"
         );
 
-        await fastForwardBlocks(1);
-        await moloch.sponsorProposal(0);
-
-        await fastForwardBlocks(5);
-        await moloch.submitVote(0, 1);
-
-        await fastForwardBlocks(31);
-
-        await moloch.processProposal(0);
+        await doProposal(true, 0, moloch)
 
         await neapolitanMinion.executeAction(
           0,
@@ -206,15 +268,7 @@ describe("Multi-call Minion", function () {
           "test"
         );
 
-        await fastForwardBlocks(1);
-        await moloch.sponsorProposal(0);
-
-        await fastForwardBlocks(5);
-        await moloch.submitVote(0, 1);
-
-        await fastForwardBlocks(31);
-
-        await moloch.processProposal(0);
+        await doProposal(true, 0, moloch)
         await neapolitanMinion.executeAction(
           0,
           [neapolitanMinion.address],
@@ -405,15 +459,7 @@ describe("Multi-call Minion", function () {
           "test"
         );
 
-        await fastForwardBlocks(1);
-        await moloch.sponsorProposal(0);
-
-        await fastForwardBlocks(5);
-        await moloch.submitVote(0, 1);
-
-        await fastForwardBlocks(31);
-
-        await moloch.processProposal(0);
+        await doProposal(true, 0, moloch)
 
         expect(
           neapolitanMinion.executeAction(
@@ -446,15 +492,7 @@ describe("Multi-call Minion", function () {
           "test"
         );
 
-        await fastForwardBlocks(1);
-        await moloch.sponsorProposal(0);
-
-        await fastForwardBlocks(5);
-        await moloch.submitVote(0, 1);
-
-        await fastForwardBlocks(31);
-
-        await moloch.processProposal(0);
+        await doProposal(true, 0, moloch)
 
         expect(
           neapolitanMinion.executeAction(
@@ -489,15 +527,7 @@ describe("Multi-call Minion", function () {
           "test"
         );
 
-        await fastForwardBlocks(1);
-        await moloch.sponsorProposal(0);
-
-        await fastForwardBlocks(5);
-        await moloch.submitVote(0, 1);
-
-        await fastForwardBlocks(31);
-
-        await moloch.processProposal(0);
+        await doProposal(true, 0, moloch)
 
         await neapolitanMinion.executeAction(
             0,
@@ -529,15 +559,8 @@ describe("Multi-call Minion", function () {
           "test"
         );
 
-        await fastForwardBlocks(1);
-        await moloch.sponsorProposal(0);
+        await doProposal(true, 0, moloch)
 
-        await fastForwardBlocks(5);
-        await moloch.submitVote(0, 1);
-
-        await fastForwardBlocks(31);
-
-        await moloch.processProposal(0);
         // should fail before ragequit
         expect(
           neapolitanMinion.executeAction(
@@ -576,15 +599,7 @@ describe("Multi-call Minion", function () {
           "test"
         );
 
-        await fastForwardBlocks(1);
-        await moloch.sponsorProposal(0);
-
-        await fastForwardBlocks(5);
-        await moloch.submitVote(0, 1);
-
-        await fastForwardBlocks(31);
-
-        await moloch.processProposal(0);
+        await doProposal(true, 0, moloch)
         await neapolitanMinion.executeAction(
           0,
           [neapolitanMinion.address],
@@ -646,15 +661,7 @@ describe("Multi-call Minion", function () {
           "test"
         );
 
-        await fastForwardBlocks(1);
-        await moloch.sponsorProposal(0);
-
-        await fastForwardBlocks(5);
-        await moloch.submitVote(0, 1);
-
-        await fastForwardBlocks(31);
-
-        await moloch.processProposal(0);
+        await doProposal(true, 0, moloch)
         await neapolitanMinion.executeAction(
           0,
           [neapolitanMinion.address],

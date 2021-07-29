@@ -435,6 +435,9 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
             // if module is set, proposal is sposored and sender is module
             require(flags[0], ERROR_NOT_SPONSORED);
             return true;
+        } else {
+            // if not module, can only execute by member
+            require(isMember(msg.sender), ERROR_MEMBER_ONLY);
         }
 
         if (minQuorum != 0) {
