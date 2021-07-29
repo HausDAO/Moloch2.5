@@ -12,7 +12,7 @@ import { doProposal, fastForwardBlocks } from "./util";
 
 use(solidity);
 
-describe.only("Delete Action", function () {
+describe("Delete Action", function () {
   let Moloch: ContractFactory;
   let moloch: Moloch;
   let moloch2: Moloch;
@@ -181,6 +181,27 @@ describe.only("Delete Action", function () {
         );
 
         expect(neapolitanMinion.executeAction(0, [anyErc20.address], [0], [action_1])).to.be.revertedWith('Minion::action was deleted')
+
+      });
+
+      it("Does not let anyone else call delete action", async function () {
+        const action_1 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          10,
+        ]);
+
+        await neapolitanMinion.proposeAction(
+          [anyErc20.address],
+          [0],
+          [action_1],
+          anyErc20.address,
+          0,
+          "test"
+        );
+
+        await doProposal(true, 0, moloch)
+        
+        expect(neapolitanMinion.deleteAction(0)).to.be.revertedWith('Minion::can only be called by this')
 
       });
 
