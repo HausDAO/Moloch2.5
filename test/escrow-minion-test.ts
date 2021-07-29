@@ -12,7 +12,7 @@ import { fastForwardBlocks } from './util'
 
 use(solidity)
 
-describe.only('Escrow', function () {
+describe('Escrow', function () {
   let Moloch: ContractFactory
   let moloch: Moloch
   

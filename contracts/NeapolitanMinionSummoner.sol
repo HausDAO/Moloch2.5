@@ -142,6 +142,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     string private constant ERROR_REQS_NOT_MET = "Minion::proposal execution requirements not met";
     string private constant ERROR_NOT_VALID = "Minion::not a valid operation";
     string private constant ERROR_EXECUTED = "Minion::action already executed";
+    string private constant ERROR_DELETED = "Minion::action was deleted";
     string private constant ERROR_FUNDS = "Minion::insufficient native token";
     string private constant ERROR_CALL_FAIL = "Minion::call failure";
     string private constant ERROR_NOT_WL = "Minion::not a whitelisted token";
@@ -180,6 +181,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     event CrossWithdraw(address target, address token, uint256 amount);
     event PulledFunds(address moloch, uint256 amount);
     event ActionCanceled(uint256 proposalId);
+    event ActionDeleted(uint256 proposalId);
 
     event ProposeSignature(uint256 proposalId, bytes32 msgHash, address proposer);
     event SignatureCanceled(uint256 proposalId, bytes32 msgHash);
@@ -324,6 +326,12 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
 
         return proposalId;
     }
+    
+    function deleteAction(uint256 _proposalId) external thisOnly returns (bool) {
+        delete actions[_proposalId];
+        emit ActionDeleted(_proposalId);
+        return true;
+    }
 
     function saveAction(
         uint256 proposalId,
@@ -358,6 +366,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
 
         bool canExecute = isPassed(proposalId);
         require(canExecute, ERROR_REQS_NOT_MET);
+        require(action.id != 0, ERROR_DELETED);
         require(action.moloch == address(moloch), ERR_MOLOCH_CHANGED);
 
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);

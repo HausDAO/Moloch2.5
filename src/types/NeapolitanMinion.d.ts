@@ -27,6 +27,7 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     "cancelSignature(bytes32)": FunctionFragment;
     "changeOwner(address)": FunctionFragment;
     "crossWithdraw(address,address,uint256,bool)": FunctionFragment;
+    "deleteAction(uint256)": FunctionFragment;
     "doWithdraw(address,uint256)": FunctionFragment;
     "executeAction(uint256,address[],uint256[],bytes[])": FunctionFragment;
     "hashOperation(address[],uint256[],bytes[])": FunctionFragment;
@@ -62,6 +63,10 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
   encodeFunctionData(
     functionFragment: "crossWithdraw",
     values: [string, string, BigNumberish, boolean]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "deleteAction",
+    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "doWithdraw",
@@ -141,6 +146,10 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     functionFragment: "crossWithdraw",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "deleteAction",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "doWithdraw", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "executeAction",
@@ -188,6 +197,7 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
 
   events: {
     "ActionCanceled(uint256)": EventFragment;
+    "ActionDeleted(uint256)": EventFragment;
     "ChangeOwner(address)": EventFragment;
     "CrossWithdraw(address,address,uint256)": EventFragment;
     "DoWithdraw(address,uint256)": EventFragment;
@@ -201,6 +211,7 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
   };
 
   getEvent(nameOrSignatureOrTopic: "ActionCanceled"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "ActionDeleted"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ChangeOwner"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "CrossWithdraw"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "DoWithdraw"): EventFragment;
@@ -306,6 +317,16 @@ export class NeapolitanMinion extends Contract {
       token: string,
       amount: BigNumberish,
       transfer: boolean,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    deleteAction(
+      _proposalId: BigNumberish,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    "deleteAction(uint256)"(
+      _proposalId: BigNumberish,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
@@ -652,6 +673,16 @@ export class NeapolitanMinion extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
+  deleteAction(
+    _proposalId: BigNumberish,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  "deleteAction(uint256)"(
+    _proposalId: BigNumberish,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
   doWithdraw(
     token: string,
     amount: BigNumberish,
@@ -947,6 +978,16 @@ export class NeapolitanMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    deleteAction(
+      _proposalId: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    "deleteAction(uint256)"(
+      _proposalId: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
     doWithdraw(
       token: string,
       amount: BigNumberish,
@@ -1163,6 +1204,8 @@ export class NeapolitanMinion extends Contract {
   filters: {
     ActionCanceled(proposalId: null): EventFilter;
 
+    ActionDeleted(proposalId: null): EventFilter;
+
     ChangeOwner(owner: null): EventFilter;
 
     CrossWithdraw(target: null, token: null, amount: null): EventFilter;
@@ -1251,6 +1294,16 @@ export class NeapolitanMinion extends Contract {
       token: string,
       amount: BigNumberish,
       transfer: boolean,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
+    deleteAction(
+      _proposalId: BigNumberish,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
+    "deleteAction(uint256)"(
+      _proposalId: BigNumberish,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
@@ -1500,6 +1553,16 @@ export class NeapolitanMinion extends Contract {
       token: string,
       amount: BigNumberish,
       transfer: boolean,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    deleteAction(
+      _proposalId: BigNumberish,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    "deleteAction(uint256)"(
+      _proposalId: BigNumberish,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 

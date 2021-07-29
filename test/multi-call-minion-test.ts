@@ -76,7 +76,7 @@ describe("Multi-call Minion", function () {
       expect(await ethers.provider.getBlockNumber()).to.equal(blockNumber + 5);
     });
   });
-  describe.only("Minions", function () {
+  describe("Minions", function () {
     this.beforeEach(async function () {
       // Deploy ERC20 contract
       anyErc20 = (await AnyERC20.deploy()) as AnyErc20;
