@@ -150,6 +150,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     string private constant ERROR_NOT_PROPOSER = "Minion::not proposer";
     string private constant ERROR_THIS_ONLY = "Minion::can only be called by this";
     string private constant ERROR_MEMBER_ONLY = "Minion::not member";
+    string private constant ERROR_MEMBER_OR_MODULE_ONLY = "Minion::not member or module";
     string private constant ERROR_NOT_SPONSORED = "Minion::proposal not sponsored";
     string private constant ERROR_NOT_PASSED = "Minion::proposal has not passed";
     string private constant ERR_MOLOCH_CHANGED = "Minion::moloch has been changed";
@@ -192,6 +193,11 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     
     modifier memberOnly() {
         require(isMember(msg.sender), ERROR_MEMBER_ONLY);
+        _;
+    }
+
+    modifier memberOrModuleOnly() {
+        require(isMember(msg.sender) || msg.sender == module, ERROR_MEMBER_OR_MODULE_ONLY);
         _;
     }
 
@@ -361,7 +367,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         uint256 proposalId,
         address[] calldata actionTos,
         uint256[] calldata actionValues,
-        bytes[] calldata actionDatas) external returns (bool) {
+        bytes[] calldata actionDatas) external memberOrModuleOnly returns (bool) {
         Action memory action = actions[proposalId];
 
         bool canExecute = isPassed(proposalId);
@@ -435,9 +441,6 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
             // if module is set, proposal is sposored and sender is module
             require(flags[0], ERROR_NOT_SPONSORED);
             return true;
-        } else {
-            // if not module, can only execute by member
-            require(isMember(msg.sender), ERROR_MEMBER_ONLY);
         }
 
         if (minQuorum != 0) {

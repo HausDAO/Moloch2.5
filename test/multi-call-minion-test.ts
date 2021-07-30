@@ -50,6 +50,7 @@ describe("Multi-call Minion", function () {
 
   let deployerAddress: string;
   let aliceAddress: string;
+  let celesteAddress: string;
   let bobAddress: string;
 
   let minQuorum: BigNumberish;
@@ -65,20 +66,14 @@ describe("Multi-call Minion", function () {
     deployer = signers[0];
     alice = signers[1];
     bob = signers[2];
-    celeste = signers[2];
+    celeste = signers[3];
 
     deployerAddress = deployer.address;
     aliceAddress = alice.address;
+    celesteAddress = celeste.address;
     bobAddress = bob.address;
   });
 
-  describe("Helpers", function () {
-    it("fast forwards blocks", async function () {
-      const blockNumber = await ethers.provider.getBlockNumber();
-      await fastForwardBlocks(5);
-      expect(await ethers.provider.getBlockNumber()).to.equal(blockNumber + 5);
-    });
-  });
   describe("Minions", function () {
     this.beforeEach(async function () {
       // Deploy ERC20 contract
@@ -150,6 +145,8 @@ describe("Multi-call Minion", function () {
       ).to.equal(10000);
       expect((await moloch.members(aliceAddress)).shares).to.equal(50);
       expect((await moloch.members(deployerAddress)).shares).to.equal(100);
+      expect((await moloch.members(deployerAddress)).shares).to.equal(100);
+      expect((await moloch.members(celesteAddress)).shares).to.equal(0);
     });
     
     describe("Permissions", function() {
@@ -207,7 +204,7 @@ describe("Multi-call Minion", function () {
           [anyErc20.address],
           [0],
           [action_1]
-        )).to.be.revertedWith('Minion::not member')
+        )).to.be.revertedWith('Minion::not member or module')
 
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0);
         expect(await anyErc20.balanceOf(neapolitanMinion.address)).to.equal(
