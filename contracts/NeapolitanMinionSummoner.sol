@@ -270,7 +270,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         bytes32 signatureHash,
         bytes4 magicValue,
         string calldata details
-    ) external memberOnly returns (uint256) {
+    ) external memberOrModuleOnly returns (uint256) {
 
         uint256 proposalId = moloch.submitProposal(
             address(this),
@@ -312,7 +312,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         address withdrawToken,
         uint256 withdrawAmount,
         string calldata details
-    ) external memberOnly returns (uint256) {
+    ) external memberOrModuleOnly returns (uint256) {
 
         require(actionTos.length == actionValues.length, ERROR_LENGTH_MISMATCH);
         require(actionTos.length == actionDatas.length, ERROR_LENGTH_MISMATCH);
