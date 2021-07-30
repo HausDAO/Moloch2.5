@@ -3,6 +3,66 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.7.5;
 
+/**
+ * @dev Contract module that helps prevent reentrant calls to a function.
+ *
+ * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
+ * available, which can be applied to functions to make sure there are no nested
+ * (reentrant) calls to them.
+ *
+ * Note that because there is a single `nonReentrant` guard, functions marked as
+ * `nonReentrant` may not call one another. This can be worked around by making
+ * those functions `private`, and then adding `external` `nonReentrant` entry
+ * points to them.
+ *
+ * TIP: If you would like to learn more about reentrancy and alternative ways
+ * to protect against it, check out our blog post
+ * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
+ */
+abstract contract ReentrancyGuard {
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
+
+    // The values being non-zero value makes deployment a bit more expensive,
+    // but in exchange the refund on every call to nonReentrant will be lower in
+    // amount. Since refunds are capped to a percentage of the total
+    // transaction's gas, it is best to keep them low in cases like this one, to
+    // increase the likelihood of the full refund coming into effect.
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
+    constructor () internal {
+        _status = _NOT_ENTERED;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and make it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        // On the first call to nonReentrant, _notEntered will be true
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+
+        // Any calls to nonReentrant after this point will fail
+        _status = _ENTERED;
+
+        _;
+
+        // By storing the original value once again, a refund is triggered (see
+        // https://eips.ethereum.org/EIPS/eip-2200)
+        _status = _NOT_ENTERED;
+    }
+}
+
+
 interface IERC20 {
     // brief interface for moloch erc20 token txs
     function balanceOf(address who) external view returns (uint256);
@@ -57,13 +117,13 @@ interface IERC1155Receiver {
     ) external returns (bytes4);
 
     // TODO batch receive not implemented in tribute yet
-    function onERC1155BatchReceived(
-        address operator,
-        address from,
-        uint256[] calldata ids,
-        uint256[] calldata values,
-        bytes calldata data
-    ) external returns (bytes4);
+    // function onERC1155BatchReceived(
+    //     address operator,
+    //     address from,
+    //     uint256[] calldata ids,
+    //     uint256[] calldata values,
+    //     bytes calldata data
+    // ) external returns (bytes4);
 }
 
 interface IMOLOCH {
@@ -111,7 +171,7 @@ interface IMOLOCH {
     function withdrawBalance(address token, uint256 amount) external;
 }
 
-contract EscrowMinion is IERC721Receiver {
+contract EscrowMinion is IERC721Receiver, ReentrancyGuard{
     mapping(address => mapping(uint256 => TributeEscrowAction)) public actions; // proposalId => Action
     
     uint256 constant MAX_LENGTH = 10;
@@ -147,6 +207,8 @@ contract EscrowMinion is IERC721Receiver {
                 keccak256("onERC721Received(address,address,uint256,bytes)")
             );
     }
+    
+    // TODO onERC1155Received
 
     function doTransfers(
         TributeEscrowAction memory action,
@@ -225,7 +287,6 @@ contract EscrowMinion is IERC721Receiver {
      // add funding request token
      * @param details Info about proposal
      */
-    // todo no re-entrency
     function proposeTribute(
         address molochAddress,
         // add array of erc1155, 721 or 20
@@ -234,7 +295,7 @@ contract EscrowMinion is IERC721Receiver {
         address vaultAddress,
         uint256[3] calldata requestSharesLootFunds, // also request loot or treasury funds
         string calldata details
-    ) external returns (uint256) {
+    ) external nonReentrant returns (uint256) {
         IMOLOCH thisMoloch = IMOLOCH(molochAddress);
         address thisMolochDepositToken = thisMoloch.depositToken();
 
@@ -271,8 +332,7 @@ contract EscrowMinion is IERC721Receiver {
         return proposalId;
     }
 
-    // todo no re-entrency
-    function executeAction(uint256 proposalId, address molochAddress) external {
+    function executeAction(uint256 proposalId, address molochAddress) external nonReentrant {
         IMOLOCH thisMoloch = IMOLOCH(molochAddress);
 
         TributeEscrowAction memory action = actions[molochAddress][proposalId];
@@ -295,24 +355,25 @@ contract EscrowMinion is IERC721Receiver {
             destination = action.proposer;
         }
 
-        doTransfers(action, address(this), destination);
-
         actions[molochAddress][proposalId].executed = true;
+
+        doTransfers(action, address(this), destination);
 
         emit ExecuteAction(proposalId, msg.sender, molochAddress);
     }
 
-    // todo no re-entrency
-    function cancelAction(uint256 _proposalId, address molochAddress) external {
+    function cancelAction(uint256 _proposalId, address molochAddress) external nonReentrant {
         IMOLOCH thisMoloch = IMOLOCH(molochAddress);
         TributeEscrowAction memory action = actions[molochAddress][_proposalId];
+
+        require(!action.executed, "action executed");
 
         require(msg.sender == action.proposer, "not proposer");
         thisMoloch.cancelProposal(_proposalId);
 
-        doTransfers(action, address(this), msg.sender);
-
         delete actions[molochAddress][_proposalId];
+
+        doTransfers(action, address(this), msg.sender);
 
         emit ActionCanceled(_proposalId, molochAddress);
     }
