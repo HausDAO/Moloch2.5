@@ -282,8 +282,9 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard, IERC1155PartialReceiv
 
         for (uint256 index = 0; index < action.typesTokenIdsAmounts.length; index++) {
             if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC721)) {
-                if (!checked721) {
+                if (!checked721 && to == address(this)) {
                     require(_checkOnERC721Received(address(this), address(this), action.vaultAddress, 0, ""), "!ERC721");
+                    require(_checkOnERC721Received(address(this), address(this), msg.sender, 0, ""), "!ERC721");
                     checked721 = true;
                 }
                 IERC721 erc721 = IERC721(action.tokenAddresses[index]);
@@ -296,8 +297,9 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard, IERC1155PartialReceiv
                     erc20.transferFrom(from, to, action.typesTokenIdsAmounts[index][2]);
                 }
             } else if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC1155)) {
-                if (!checked1155) {
+                if (!checked1155 && to == address(this)) {
                     require(_checkOnERC1155Received(address(this), address(this), action.vaultAddress, 0, 0, ""), "!ERC1155");
+                    require(_checkOnERC1155Received(address(this), address(this), msg.sender, 0, 0, ""), "!ERC1155");
                     checked1155 = true;
                 }
                 IERC1155 erc1155 = IERC1155(action.tokenAddresses[index]);
@@ -315,8 +317,8 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard, IERC1155PartialReceiv
     function saveAction(
         address molochAddress,
         // add array of erc1155, 721 or 20
-        address[] calldata tokenAddresses,
-        uint256[3][] calldata typesTokenIdsAmounts,
+        address[] memory tokenAddresses,
+        uint256[3][] memory typesTokenIdsAmounts,
         // uint256[] calldata amounts,
         address vaultAddress,
         uint256 proposalId
@@ -361,7 +363,6 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard, IERC1155PartialReceiv
      */
     function proposeTribute(
         address molochAddress,
-        // add array of erc1155, 721 or 20
         address[] calldata tokenAddresses,
         uint256[3][] calldata typesTokenIdsAmounts,
         address vaultAddress,
@@ -411,7 +412,6 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard, IERC1155PartialReceiv
         bool[6] memory flags = thisMoloch.getProposalFlags(proposalId);
 
         require(action.vaultAddress != address(0), "invalid proposalId");
-        // TODO check for IERC721Receiver interface
 
         require(!action.executed, "action executed");
 
@@ -432,6 +432,45 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard, IERC1155PartialReceiv
         doTransfers(action, address(this), destination);
 
         emit ExecuteAction(proposalId, msg.sender, molochAddress);
+    }
+
+    // If somehow escrow gets stuck provide a governance based rescue option
+    function rescueTribute(uint256 proposalId, address molochAddress, address newDestination, string calldata details) external nonReentrant {
+        IMOLOCH thisMoloch = IMOLOCH(molochAddress);
+        address thisMolochDepositToken = thisMoloch.depositToken();
+
+        TributeEscrowAction memory action = actions[molochAddress][proposalId];
+        bool[6] memory flags = thisMoloch.getProposalFlags(proposalId);
+
+        require(newDestination!= address(0), "invalid proposalId");
+
+        require(!action.executed, "action executed");
+
+        require(flags[1], "proposal not processed");
+
+        require(!flags[3], "proposal cancelled");
+
+        uint256 rescueProposalId = thisMoloch.submitProposal(
+            msg.sender,
+            0,
+            0,
+            0,
+            thisMolochDepositToken,
+            0,
+            thisMolochDepositToken,
+            details
+        );
+
+        TributeEscrowAction memory rescueAction = saveAction(
+            molochAddress,
+            action.tokenAddresses,
+            action.typesTokenIdsAmounts,
+            newDestination,
+            rescueProposalId
+        );
+        
+        emitProposalEvent(rescueAction);
+
     }
 
     function cancelAction(uint256 _proposalId, address molochAddress) external nonReentrant {

@@ -28,6 +28,7 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
     "onERC1155Received(address,address,uint256,uint256,bytes)": FunctionFragment;
     "onERC721Received(address,address,uint256,bytes)": FunctionFragment;
     "proposeTribute(address,address[],uint256[3][],address,uint256[3],string)": FunctionFragment;
+    "rescueTribute(uint256,address,address,string)": FunctionFragment;
   };
 
   encodeFunctionData(
@@ -61,6 +62,10 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
       string
     ]
   ): string;
+  encodeFunctionData(
+    functionFragment: "rescueTribute",
+    values: [BigNumberish, string, string, string]
+  ): string;
 
   decodeFunctionResult(functionFragment: "actions", data: BytesLike): Result;
   decodeFunctionResult(
@@ -81,6 +86,10 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "proposeTribute",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "rescueTribute",
     data: BytesLike
   ): Result;
 
@@ -228,6 +237,22 @@ export class EscrowMinion extends Contract {
       details: string,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
+
+    rescueTribute(
+      proposalId: BigNumberish,
+      molochAddress: string,
+      newDestination: string,
+      details: string,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    "rescueTribute(uint256,address,address,string)"(
+      proposalId: BigNumberish,
+      molochAddress: string,
+      newDestination: string,
+      details: string,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
   };
 
   actions(
@@ -338,6 +363,22 @@ export class EscrowMinion extends Contract {
     typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
     vaultAddress: string,
     requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
+    details: string,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  rescueTribute(
+    proposalId: BigNumberish,
+    molochAddress: string,
+    newDestination: string,
+    details: string,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  "rescueTribute(uint256,address,address,string)"(
+    proposalId: BigNumberish,
+    molochAddress: string,
+    newDestination: string,
     details: string,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
@@ -454,6 +495,22 @@ export class EscrowMinion extends Contract {
       details: string,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
+
+    rescueTribute(
+      proposalId: BigNumberish,
+      molochAddress: string,
+      newDestination: string,
+      details: string,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    "rescueTribute(uint256,address,address,string)"(
+      proposalId: BigNumberish,
+      molochAddress: string,
+      newDestination: string,
+      details: string,
+      overrides?: CallOverrides
+    ): Promise<void>;
   };
 
   filters: {
@@ -563,6 +620,22 @@ export class EscrowMinion extends Contract {
       details: string,
       overrides?: Overrides
     ): Promise<BigNumber>;
+
+    rescueTribute(
+      proposalId: BigNumberish,
+      molochAddress: string,
+      newDestination: string,
+      details: string,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
+    "rescueTribute(uint256,address,address,string)"(
+      proposalId: BigNumberish,
+      molochAddress: string,
+      newDestination: string,
+      details: string,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
   };
 
   populateTransaction: {
@@ -652,6 +725,22 @@ export class EscrowMinion extends Contract {
       typesTokenIdsAmounts: [BigNumberish, BigNumberish, BigNumberish][],
       vaultAddress: string,
       requestSharesLootFunds: [BigNumberish, BigNumberish, BigNumberish],
+      details: string,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    rescueTribute(
+      proposalId: BigNumberish,
+      molochAddress: string,
+      newDestination: string,
+      details: string,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    "rescueTribute(uint256,address,address,string)"(
+      proposalId: BigNumberish,
+      molochAddress: string,
+      newDestination: string,
       details: string,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
