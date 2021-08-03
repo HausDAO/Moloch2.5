@@ -117,7 +117,7 @@ interface IERC1155PartialReceiver {
         bytes calldata data
     ) external returns (bytes4);
 
-    // batch receive not implemented in tribute yet
+    // batch receive not implemented in escrow yet
     // function onERC1155BatchReceived(
     //     address operator,
     //     address from,
