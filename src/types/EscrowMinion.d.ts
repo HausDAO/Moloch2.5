@@ -25,6 +25,7 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
     "actions(address,uint256)": FunctionFragment;
     "cancelAction(uint256,address)": FunctionFragment;
     "executeAction(uint256,address)": FunctionFragment;
+    "onERC1155Received(address,address,uint256,uint256,bytes)": FunctionFragment;
     "onERC721Received(address,address,uint256,bytes)": FunctionFragment;
     "proposeTribute(address,address[],uint256[3][],address,uint256[3],string)": FunctionFragment;
   };
@@ -40,6 +41,10 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
   encodeFunctionData(
     functionFragment: "executeAction",
     values: [BigNumberish, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "onERC1155Received",
+    values: [string, string, BigNumberish, BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "onERC721Received",
@@ -64,6 +69,10 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "executeAction",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "onERC1155Received",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -157,6 +166,28 @@ export class EscrowMinion extends Contract {
       molochAddress: string,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
+
+    onERC1155Received(
+      arg0: string,
+      arg1: string,
+      arg2: BigNumberish,
+      arg3: BigNumberish,
+      arg4: BytesLike,
+      overrides?: CallOverrides
+    ): Promise<{
+      0: string;
+    }>;
+
+    "onERC1155Received(address,address,uint256,uint256,bytes)"(
+      arg0: string,
+      arg1: string,
+      arg2: BigNumberish,
+      arg3: BigNumberish,
+      arg4: BytesLike,
+      overrides?: CallOverrides
+    ): Promise<{
+      0: string;
+    }>;
 
     onERC721Received(
       arg0: string,
@@ -257,6 +288,24 @@ export class EscrowMinion extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
+  onERC1155Received(
+    arg0: string,
+    arg1: string,
+    arg2: BigNumberish,
+    arg3: BigNumberish,
+    arg4: BytesLike,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
+  "onERC1155Received(address,address,uint256,uint256,bytes)"(
+    arg0: string,
+    arg1: string,
+    arg2: BigNumberish,
+    arg3: BigNumberish,
+    arg4: BytesLike,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
   onERC721Received(
     arg0: string,
     arg1: string,
@@ -352,6 +401,24 @@ export class EscrowMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    onERC1155Received(
+      arg0: string,
+      arg1: string,
+      arg2: BigNumberish,
+      arg3: BigNumberish,
+      arg4: BytesLike,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    "onERC1155Received(address,address,uint256,uint256,bytes)"(
+      arg0: string,
+      arg1: string,
+      arg2: BigNumberish,
+      arg3: BigNumberish,
+      arg4: BytesLike,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
     onERC721Received(
       arg0: string,
       arg1: string,
@@ -443,6 +510,24 @@ export class EscrowMinion extends Contract {
       overrides?: Overrides
     ): Promise<BigNumber>;
 
+    onERC1155Received(
+      arg0: string,
+      arg1: string,
+      arg2: BigNumberish,
+      arg3: BigNumberish,
+      arg4: BytesLike,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    "onERC1155Received(address,address,uint256,uint256,bytes)"(
+      arg0: string,
+      arg1: string,
+      arg2: BigNumberish,
+      arg3: BigNumberish,
+      arg4: BytesLike,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
     onERC721Received(
       arg0: string,
       arg1: string,
@@ -515,6 +600,24 @@ export class EscrowMinion extends Contract {
       proposalId: BigNumberish,
       molochAddress: string,
       overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    onERC1155Received(
+      arg0: string,
+      arg1: string,
+      arg2: BigNumberish,
+      arg3: BigNumberish,
+      arg4: BytesLike,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    "onERC1155Received(address,address,uint256,uint256,bytes)"(
+      arg0: string,
+      arg1: string,
+      arg2: BigNumberish,
+      arg3: BigNumberish,
+      arg4: BytesLike,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     onERC721Received(

@@ -18,7 +18,7 @@ export const doProposal = async (pass: boolean, proposalId: number, moloch: Molo
   await moloch.sponsorProposal(proposalId);
 
   await fastForwardBlocks(5);
-  await moloch.submitVote(proposalId, pass ? 1 : 0);
+  await moloch.submitVote(proposalId, pass ? 1 : 2);
 
   await fastForwardBlocks(31);
 

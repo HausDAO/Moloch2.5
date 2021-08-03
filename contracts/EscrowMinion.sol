@@ -1,4 +1,5 @@
 // Based on https://github.com/HausDAO/MinionSummoner/blob/main/MinionFactory.sol
+import "@openzeppelin/contracts/utils/Address.sol";
 
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.7.5;
@@ -107,7 +108,7 @@ interface IERC721Receiver {
     ) external returns (bytes4);
 }
 
-interface IERC1155Receiver {
+interface IERC1155PartialReceiver {
     function onERC1155Received(
         address operator,
         address from,
@@ -116,7 +117,7 @@ interface IERC1155Receiver {
         bytes calldata data
     ) external returns (bytes4);
 
-    // TODO batch receive not implemented in tribute yet
+    // batch receive not implemented in tribute yet
     // function onERC1155BatchReceived(
     //     address operator,
     //     address from,
@@ -171,7 +172,9 @@ interface IMOLOCH {
     function withdrawBalance(address token, uint256 amount) external;
 }
 
-contract EscrowMinion is IERC721Receiver, ReentrancyGuard{
+contract EscrowMinion is IERC721Receiver, ReentrancyGuard, IERC1155PartialReceiver{
+    using Address for address;
+
     mapping(address => mapping(uint256 => TributeEscrowAction)) public actions; // proposalId => Action
     
     uint256 constant MAX_LENGTH = 10;
@@ -207,19 +210,84 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard{
                 keccak256("onERC721Received(address,address,uint256,bytes)")
             );
     }
-    
-    // TODO onERC1155Received
+
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure override returns(bytes4) {
+        return bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"));
+    }
+
+
+    /**
+     * @dev Internal function to invoke {IERC721Receiver-onERC721Received} on a target address.
+     * The call is not executed if the target address is not a contract.
+     *
+     * @param operator address representing the entity calling the function
+     * @param from address representing the previous owner of the given token ID
+     * @param to target address that will receive the tokens
+     * @param tokenId uint256 ID of the token to be transferred
+     * @param _data bytes optional data to send along with the call
+     * @return bool whether the call correctly returned the expected magic value
+     */
+    function _checkOnERC721Received(address operator, address from, address to, uint256 tokenId, bytes memory _data)
+        private returns (bool)
+    {
+        if (!to.isContract()) {
+            return true;
+        }
+        bytes memory returndata = to.functionCall(abi.encodeWithSelector(
+            IERC721Receiver(to).onERC721Received.selector,
+            operator,
+            from,
+            tokenId,
+            _data
+        ), "ERC721: transfer to non ERC721Receiver implementer");
+        bytes4 retval = abi.decode(returndata, (bytes4));
+        return (retval == IERC721Receiver(to).onERC721Received.selector);
+    }
+
+    function _checkOnERC1155Received(
+        address operator,
+        address from,
+        address to,
+        uint256 id,
+        uint256 amount,
+        bytes memory data
+    )
+        private returns (bool)
+    {
+        if (!to.isContract()) {
+            return true;
+        }
+        bytes memory returndata = to.functionCall(abi.encodeWithSelector(
+            IERC1155PartialReceiver(to).onERC1155Received.selector,
+            operator,
+            from,
+            id,
+            amount,
+            data
+        ), "ERC1155: transfer to non ERC1155Receiver implementer");
+        bytes4 retval = abi.decode(returndata, (bytes4));
+        return (retval == IERC1155PartialReceiver(to).onERC1155Received.selector);
+    }
 
     function doTransfers(
         TributeEscrowAction memory action,
         address from,
         address to
     ) internal {
+        // first confirm that the destination vault is a valid receiver for ERC721 and ERC1155
+        bool checked1155;
+        bool checked721;
+        
+        // NOTE we are not checking if ERC20 is supported. Should we?
+
         for (uint256 index = 0; index < action.typesTokenIdsAmounts.length; index++) {
             if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC721)) {
+                if (!checked721) {
+                    require(_checkOnERC721Received(address(this), address(this), action.vaultAddress, 0, ""), "!ERC721");
+                    checked721 = true;
+                }
                 IERC721 erc721 = IERC721(action.tokenAddresses[index]);
                 erc721.safeTransferFrom(from, to, action.typesTokenIdsAmounts[index][1]);
-                // erc721.safeTransferFrom(from, to, 1);
             } else if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC20)) {
                 IERC20 erc20 = IERC20(action.tokenAddresses[index]);
                 if (from == address(this)) {
@@ -228,6 +296,10 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard{
                     erc20.transferFrom(from, to, action.typesTokenIdsAmounts[index][2]);
                 }
             } else if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC1155)) {
+                if (!checked1155) {
+                    require(_checkOnERC1155Received(address(this), address(this), action.vaultAddress, 0, 0, ""), "!ERC1155");
+                    checked1155 = true;
+                }
                 IERC1155 erc1155 = IERC1155(action.tokenAddresses[index]);
                 erc1155.safeTransferFrom(
                     from,
@@ -300,7 +372,7 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard{
         address thisMolochDepositToken = thisMoloch.depositToken();
 
         require(vaultAddress != address(0), "invalid vaultAddress");
-
+        
         // require length check
         require(typesTokenIdsAmounts.length == tokenAddresses.length, "!same-length");
         
