@@ -147,6 +147,10 @@ describe('ERC1271 Minion Functionality', function () {
         expect(erc1271Minion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.be.revertedWith('erc1271::invalid signature')
       })
 
+      it('Does not allow anyone else to call sign', async function () {
+        expect(erc1271Minion.sign(arbitraryMsgHash, arbitrarySignatureHash, magicValue)).to.be.revertedWith('Minion::can only be called by this')
+      })
+
       it('Reverts if proposal has been cancelled', async function () {
         const sign_action_1 = erc1271Minion.interface.encodeFunctionData("sign", [
           arbitraryMsgHash,
