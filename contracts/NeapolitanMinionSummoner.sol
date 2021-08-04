@@ -164,16 +164,11 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         address moloch;
     }
 
+    mapping (bytes32 => DAOSignature) public signatures; // msgHash => Signature
     struct DAOSignature {
         bytes32 signatureHash;
         bytes4 magicValue;
-        uint256 proposalId;
-        address proposer;
     }
-
-    mapping (bytes32 => DAOSignature) public signatures; // msgHash => Signature
-    // TODO: lookup signature hash by
-    mapping (uint256 => bytes32) msgHashes;
 
     event ProposeAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address target, uint256 value, bytes data);
     event ExecuteAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address target, uint256 value, bytes data, address executor);
@@ -258,50 +253,24 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         returns (bytes4)
     {
         DAOSignature memory daoSignature = signatures[permissionHash];
-        bool[6] memory flags = moloch.getProposalFlags(daoSignature.proposalId);
-        require(flags[2], ERROR_NOT_PASSED);
-        require(daoSignature.signatureHash == keccak256(abi.encodePacked(signature)), 'Invalid signature hash');
+        require(daoSignature.magicValue != 0, "erc1271::invalid signature");
+        require(
+            daoSignature.signatureHash ==
+                keccak256(abi.encodePacked(signature)),
+            "erc1271::invalid signature hash"
+        );
         return daoSignature.magicValue;
     }
-    
-    //  -- Moloch Proposal Functions --
-    function proposeSignature(
-        bytes32 msgHash,
+
+    function sign(
+        bytes32 permissionHash,
         bytes32 signatureHash,
-        bytes4 magicValue,
-        string calldata details
-    ) external memberOrModuleOnly returns (uint256) {
-
-        uint256 proposalId = moloch.submitProposal(
-            address(this),
-            0,
-            0,
-            0,
-            molochDepositToken,
-            0,
-            molochDepositToken,
-            details
-        );
-
-        DAOSignature memory sig = DAOSignature({
-            proposalId: proposalId,
+        bytes4 magicValue
+    ) external thisOnly {
+        signatures[permissionHash] = DAOSignature({
             signatureHash: signatureHash,
-            magicValue: magicValue,
-            proposer: msg.sender
+            magicValue: magicValue
         });
-
-        signatures[msgHash] = sig;
-
-        emit ProposeSignature(proposalId, msgHash, msg.sender);
-        return proposalId;
-    }
-
-    function cancelSignature(bytes32 msgHash) external {
-        DAOSignature memory signature = signatures[msgHash];
-        require(msg.sender == signature.proposer, "not proposer");
-        delete signatures[msgHash];
-        emit SignatureCanceled(signature.proposalId, msgHash);
-        moloch.cancelProposal(signature.proposalId);
     }
     
     //  -- Proposal Functions --

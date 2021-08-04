@@ -1,26 +1,26 @@
 import { ethers } from 'hardhat'
 import { solidity } from 'ethereum-waffle'
-import { Contract, ContractFactory } from 'ethers'
+import { Contract, ContractFactory, BigNumberish } from 'ethers'
 import { use, expect } from 'chai'
 import { AnyErc20 } from '../src/types/AnyErc20'
 import { Moloch } from '../src/types/Moloch'
-import { Erc1271Minion } from '../src/types/Erc1271Minion'
+import { NeapolitanMinion } from '../src/types/NeapolitanMinion'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
-import { fastForwardBlocks } from './util'
+import { doProposal, fastForwardBlocks } from './util'
 
 use(solidity)
 
-describe('ERC1271 Minion', function () {
+describe('ERC1271 Minion Functionality', function () {
   let Moloch: ContractFactory
   let moloch: Moloch
   
   let molochAsAlice: Moloch
   
   let ERC1271Minion: ContractFactory
-  let erc1271Minion: Erc1271Minion
+  let erc1271Minion: NeapolitanMinion
 
-  let erc1271MinionAsAlice: Erc1271Minion
-  let erc1271MinionAsBob: Erc1271Minion
+  let erc1271MinionAsAlice: NeapolitanMinion
+  let erc1271MinionAsBob: NeapolitanMinion
 
   let AnyNft: ContractFactory
 
@@ -42,9 +42,11 @@ describe('ERC1271 Minion', function () {
   let arbitraryMsgHash: string
   let magicValue: string
 
+  let minQuorum: BigNumberish;
+
   this.beforeAll(async function () {
     Moloch = await ethers.getContractFactory('Moloch')
-    ERC1271Minion = await ethers.getContractFactory('ERC1271Minion')
+    ERC1271Minion = await ethers.getContractFactory('NeapolitanMinion')
     AnyNft = await ethers.getContractFactory('AnyNFT')
     AnyERC20 = await ethers.getContractFactory('AnyERC20')
     signers = await ethers.getSigners()
@@ -87,8 +89,9 @@ describe('ERC1271 Minion', function () {
       // collect tokens
       await moloch.collectTokens(anyErc20.address)
 
-      erc1271Minion = (await ERC1271Minion.deploy()) as Erc1271Minion
-      await erc1271Minion.init(moloch.address)
+      erc1271Minion = (await ERC1271Minion.deploy()) as NeapolitanMinion
+      minQuorum = 20;
+      await erc1271Minion.init(moloch.address, minQuorum)
       erc1271MinionAsAlice = await erc1271Minion.connect(alice)
       erc1271MinionAsBob = await erc1271Minion.connect(bob)
       
@@ -103,99 +106,131 @@ describe('ERC1271 Minion', function () {
     })
     
     describe('Signatures', function () {
-      it('Allows a member to submit a signature proposal', async function () {
-        await erc1271Minion.proposeSignature(arbitraryMsgHash, arbitrarySignatureHash, magicValue, 'sig test')
+      it('Allows a member to submit a signature proposal and mark it valid through voting', async function () {
+        const sign_action_1 = erc1271Minion.interface.encodeFunctionData("sign", [
+          arbitraryMsgHash,
+          arbitrarySignatureHash,
+          magicValue
+        ]);
+        await erc1271Minion.proposeAction(
+          [erc1271Minion.address],
+          [0],
+          [sign_action_1],
+          anyErc20.address,
+          0,
+          "test"
+        )
         
-        expect((await erc1271Minion.signatures(arbitraryMsgHash)).magicValue).to.equal(magicValue)
+        await doProposal(true, 0, moloch)
         
-      })
-
-      it('Marks a signature valid if a proposal passes', async function () {
-        await erc1271Minion.proposeSignature(arbitraryMsgHash, arbitrarySignatureHash, magicValue, 'sig test')
-        
-        await fastForwardBlocks(1)
-        await moloch.sponsorProposal(0)
-
-        await fastForwardBlocks(5)
-        await moloch.submitVote(0, 1)
-        
-        await fastForwardBlocks(31)
-        
-        await moloch.processProposal(0)
+        await erc1271Minion.executeAction(0, [erc1271Minion.address], [0], [sign_action_1])
         
         expect(await erc1271Minion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.equal(magicValue)
+        
       })
 
       it('Reverts if proposal has not passed yet', async function () {
-        await erc1271Minion.proposeSignature(arbitraryMsgHash, arbitrarySignatureHash, magicValue, 'sig test')
+        const sign_action_1 = erc1271Minion.interface.encodeFunctionData("sign", [
+          arbitraryMsgHash,
+          arbitrarySignatureHash,
+          magicValue
+        ]);
+        await erc1271Minion.proposeAction(
+          [erc1271Minion.address],
+          [0],
+          [sign_action_1],
+          anyErc20.address,
+          0,
+          "test"
+        )
         
-        expect(erc1271Minion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.be.revertedWith('Proposal has not passed')
+        expect(erc1271Minion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.be.revertedWith('erc1271::invalid signature')
       })
 
       it('Reverts if proposal has been cancelled', async function () {
-        await erc1271Minion.proposeSignature(arbitraryMsgHash, arbitrarySignatureHash, magicValue, 'sig test')
+        const sign_action_1 = erc1271Minion.interface.encodeFunctionData("sign", [
+          arbitraryMsgHash,
+          arbitrarySignatureHash,
+          magicValue
+        ]);
+        await erc1271Minion.proposeAction(
+          [erc1271Minion.address],
+          [0],
+          [sign_action_1],
+          anyErc20.address,
+          0,
+          "test"
+        )
         
         await fastForwardBlocks(1)
-        await erc1271Minion.cancelSignature(arbitraryMsgHash)
+        await erc1271Minion.cancelAction(0)
 
-        expect(erc1271Minion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.be.revertedWith('Proposal has not passed')
+        expect(erc1271Minion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.be.revertedWith('erc1271::invalid signature')
       })
       
       it('Does not allow someone else to cancel signature proposal', async function () {
-        await erc1271Minion.proposeSignature(arbitraryMsgHash, arbitrarySignatureHash, magicValue, 'sig test')
+        const sign_action_1 = erc1271Minion.interface.encodeFunctionData("sign", [
+          arbitraryMsgHash,
+          arbitrarySignatureHash,
+          magicValue
+        ]);
+        await erc1271Minion.proposeAction(
+          [erc1271Minion.address],
+          [0],
+          [sign_action_1],
+          anyErc20.address,
+          0,
+          "test"
+        )
         
         await fastForwardBlocks(1)
-        expect(erc1271MinionAsAlice.cancelSignature(arbitraryMsgHash)).to.be.revertedWith('not proposer')
+        expect(erc1271MinionAsAlice.cancelAction(0)).to.be.revertedWith('not proposer')
       })
       
       // reverts if failed
       it('Reverts if proposal has failed', async function () {
-        await erc1271Minion.proposeSignature(arbitraryMsgHash, arbitrarySignatureHash, magicValue, 'sig test')
-
-        await fastForwardBlocks(1)
-        await moloch.sponsorProposal(0)
-
-        await fastForwardBlocks(5)
-        await moloch.submitVote(0, 2)
+        const sign_action_1 = erc1271Minion.interface.encodeFunctionData("sign", [
+          arbitraryMsgHash,
+          arbitrarySignatureHash,
+          magicValue
+        ]);
+        await erc1271Minion.proposeAction(
+          [erc1271Minion.address],
+          [0],
+          [sign_action_1],
+          anyErc20.address,
+          0,
+          "test"
+        )
         
-        await fastForwardBlocks(31)
-        
-        expect(erc1271Minion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.be.revertedWith('Proposal has not passed')
+        await doProposal(false, 0, moloch)
+        expect(erc1271Minion.executeAction(0, [erc1271Minion.address], [0], [sign_action_1])).to.be.revertedWith('Minion::proposal execution requirements not met')
+
+        expect(erc1271Minion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.be.revertedWith('erc1271::invalid signature')
       })
 
-      it('Reverts if proposal has failed and processed', async function () {
-        await erc1271Minion.proposeSignature(arbitraryMsgHash, arbitrarySignatureHash, magicValue, 'sig test')
-
-        await fastForwardBlocks(1)
-        await moloch.sponsorProposal(0)
-
-        await fastForwardBlocks(5)
-        await moloch.submitVote(0, 2)
-        
-        await fastForwardBlocks(31)
-        
-        await moloch.processProposal(0)
-        
-        expect(erc1271Minion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.be.revertedWith('Proposal has not passed')
-      })
-      
       // reverts if wrong signature
 
       it('Reverts if wrongs signature given for valid proposal', async function () {
-        await erc1271Minion.proposeSignature(arbitraryMsgHash, arbitrarySignatureHash, magicValue, 'sig test')
+        const sign_action_1 = erc1271Minion.interface.encodeFunctionData("sign", [
+          arbitraryMsgHash,
+          arbitrarySignatureHash,
+          magicValue
+        ]);
+        await erc1271Minion.proposeAction(
+          [erc1271Minion.address],
+          [0],
+          [sign_action_1],
+          anyErc20.address,
+          0,
+          "test"
+        )
         
-        await fastForwardBlocks(1)
-        await moloch.sponsorProposal(0)
+        await doProposal(true, 0, moloch)
 
-        await fastForwardBlocks(5)
-        await moloch.submitVote(0, 1)
-        
-        await fastForwardBlocks(31)
-        
-        await moloch.processProposal(0)
         const invalidSignature = await alice.signMessage('something else')
         
-        expect(erc1271Minion.isValidSignature(arbitraryMsgHash, invalidSignature)).to.be.revertedWith('Invalid signature hash')
+        expect(erc1271Minion.isValidSignature(arbitraryMsgHash, invalidSignature)).to.be.revertedWith('erc1271::invalid signature')
       })
 
 
