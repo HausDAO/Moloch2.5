@@ -52,17 +52,12 @@ describe.only('Escrow', function () {
   let alice: SignerWithAddress
   let bob: SignerWithAddress
 
-  let minterAddress: string
-
-  const zeroAddress = '0x0000000000000000000000000000000000000000'
 
   let deployerAddress: string
   let aliceAddress: string
   let bobAddress: string
   
   const numTokens = 10
-
-  const tokenIds = Array.from({length: numTokens}, (_, i) => i + 1)
 
   this.beforeAll(async function () {
     Moloch = await ethers.getContractFactory('Moloch')
@@ -591,11 +586,33 @@ describe.only('Escrow', function () {
         expect(await any1155.balanceOf(neaMinion.address, 1)).to.equal(0)
       })
     
+      // Tribute rescue
+
+      it('Moves NFT into to a different destination if rescue is used', async function () {
+        await anyNftAsAlice.approve(escrowMinion.address, 1)
+        await escrowMinionAsAlice.proposeTribute(moloch.address, [anyNft.address], [[1,1,0]], neaMinion.address, [5,0,0], 'test')
+        
+        await doProposal(true, 0, moloch)
+        
+        await escrowMinionAsAlice.rescueTribute(0, moloch.address, vanillaMinion.address, '')
+        
+        await doProposal(true, 1, moloch)
+        
+        await escrowMinionAsAlice.executeAction(1, moloch.address)
+        expect(escrowMinionAsAlice.executeAction(0, moloch.address)).to.be.revertedWith("ERC721: transfer caller is not owner nor approved")
+
+        expect(await anyNft.ownerOf(1)).to.equal(vanillaMinion.address)
+
+      })
+      
+      
       
     })
 
 
 
   })
+  
+  
 })
 

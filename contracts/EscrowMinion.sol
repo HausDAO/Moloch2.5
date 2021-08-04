@@ -283,7 +283,10 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard, IERC1155PartialReceiv
         for (uint256 index = 0; index < action.typesTokenIdsAmounts.length; index++) {
             if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC721)) {
                 if (!checked721 && to == address(this)) {
+                    // ensure destination can receive tokens on success
                     require(_checkOnERC721Received(address(this), address(this), action.vaultAddress, 0, ""), "!ERC721");
+
+                    // ensure applicant can receive tokens on failure or cancellation
                     require(_checkOnERC721Received(address(this), address(this), msg.sender, 0, ""), "!ERC721");
                     checked721 = true;
                 }
@@ -449,6 +452,9 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard, IERC1155PartialReceiv
         require(flags[1], "proposal not processed");
 
         require(!flags[3], "proposal cancelled");
+        
+        // TODO should only the original proposer be allowed to submit a rescue proposal?
+        // TODO should a rescue proposal invalidate the old action? Or can we just leave it hanging
 
         uint256 rescueProposalId = thisMoloch.submitProposal(
             msg.sender,
