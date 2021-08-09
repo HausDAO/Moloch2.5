@@ -2,6 +2,12 @@
 Summon All the Minions
 
 
+## Documetation is still WIP
+
+### Neapolitan Minion walkthrough and docs
+
+https://jonathanprozzi.notion.site/Neapolitan-Minion-Summoner-Documentation-788657ab7f1348168f4850be696593be
+
 
 ## Summoning 
 Summon a minion for your DAO, give it a name, just 'cause this is a vanilla minion (the OG) doesn't mean it doesn't deserve some spice. 
