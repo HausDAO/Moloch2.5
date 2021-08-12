@@ -153,8 +153,11 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     string private constant ERROR_MEMBER_OR_MODULE_ONLY = "Minion::not member or module";
     string private constant ERROR_NOT_SPONSORED = "Minion::proposal not sponsored";
     string private constant ERROR_NOT_PASSED = "Minion::proposal has not passed";
-    string private constant ERR_MOLOCH_CHANGED = "Minion::moloch has been changed";
-
+    string private constant ERROR_MOLOCH_CHANGED = "Minion::moloch has been changed";
+    string private constant ERROR_MIN_QUORUM_BOUNDS = "Minion::minQuorum must be 0 to 100";
+    string private constant ERROR_ZERO_DEPOSIT_TOKEN = "Minion:zero deposit token is not allowed";
+    string private constant ERROR_MOLOCH_SHARES = "Minion:moloch must have no members with shares";
+    string private constant ERROR_NO_ACTION = "Minion:action does not exist";
     struct Action {
         bytes32 id;
         address proposer;
@@ -172,6 +175,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
 
     event ProposeAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address target, uint256 value, bytes data);
     event ExecuteAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address target, uint256 value, bytes data, address executor);
+    event ExecuteEscapeHatch(address target, uint256 value, bytes data, address executor);
     
     event DoWithdraw(address token, uint256 amount);
     event CrossWithdraw(address target, address token, uint256 amount);
@@ -201,12 +205,23 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         _;
     }
 
+    modifier noMemberMoloch() {
+        require(moloch.totalShares() < 1, ERROR_MOLOCH_SHARES);
+        _;
+    }
+
+    constructor () {
+        initialized = true;
+    }
     function init(address _moloch, uint256 _minQuorum) external {
         require(!initialized, ERROR_INIT); 
+        // min quorum must be between 0% and 100%, if 0 early execution is disabled
+        require(_minQuorum >= 0 && _minQuorum <= 100, ERROR_MIN_QUORUM_BOUNDS);
         moloch = IMOLOCH(_moloch);
         minQuorum = _minQuorum;
         molochDepositToken = moloch.depositToken();
-        // TODO: should template be initialized or disabled somehow?
+        // verify that moloch address has a deposit token and it is not zero
+        require(molochDepositToken != address(0), ERROR_ZERO_DEPOSIT_TOKEN);
         initialized = true; 
         emit ChangeOwner(_moloch);
     }
@@ -226,7 +241,6 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     
     //  -- Moloch Withdraw Functions --
     function doWithdraw(address token, uint256 amount) public memberOnly {
-        // TODO: is there any reason to have this with cross withdraw
         moloch.withdrawBalance(token, amount); // withdraw funds from parent moloch
         emit DoWithdraw(token, amount);
     }
@@ -247,7 +261,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
 
     //  -- Signature Interface --
     function isValidSignature(bytes32 permissionHash, bytes memory signature)
-        public
+        external
         view
         override
         returns (bytes4)
@@ -301,8 +315,24 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
 
         return proposalId;
     }
+
+    // if the parent moloch has no share holding members this can be used to release funds
+    function escapeHatch(
+        address actionTo,
+        uint256 actionValue,
+        bytes calldata actionData
+    ) external noMemberMoloch returns (bool) {
+        require(address(this).balance >= actionValue, ERROR_FUNDS);
+        (bool success, ) = actionTo.call{value: actionValue}(actionData);
+        require(success, ERROR_CALL_FAIL);
+        emit ExecuteEscapeHatch(actionTo, actionValue, actionData, msg.sender);
+        return true;
+    }
     
     function deleteAction(uint256 _proposalId) external thisOnly returns (bool) {
+        //TODO: can delete own proposal, how to check?
+        // check action exists
+        require(actions[_proposalId].proposer != address(0), ERROR_NO_ACTION);
         delete actions[_proposalId];
         emit ActionDeleted(_proposalId);
         return true;
@@ -338,21 +368,21 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         uint256[] calldata actionValues,
         bytes[] calldata actionDatas) external memberOrModuleOnly returns (bool) {
         Action memory action = actions[proposalId];
+        require(!action.executed, ERROR_EXECUTED);
 
-        bool canExecute = isPassed(proposalId);
-        require(canExecute, ERROR_REQS_NOT_MET);
+        require(isPassed(proposalId), ERROR_REQS_NOT_MET);
         require(action.id != 0, ERROR_DELETED);
-        require(action.moloch == address(moloch), ERR_MOLOCH_CHANGED);
+        require(action.moloch == address(moloch), ERROR_MOLOCH_CHANGED);
 
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
 
-        if(action.amount > 0) {
+        require(id == action.id, ERROR_NOT_VALID);
+        
+
+        if(action.amount > 0 && moloch.getUserTokenBalance(address(this), action.token) > 0) {
             // withdraw token tribute if any
             doWithdraw(action.token, moloch.getUserTokenBalance(address(this), action.token));
         }
-        
-        require(id == action.id, ERROR_NOT_VALID);
-        require(!action.executed, ERROR_EXECUTED);
         
         // execute calls
         actions[proposalId].executed = true;
@@ -378,14 +408,15 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
 
     // -- Admin Functions --
     function changeOwner(address _moloch) external thisOnly returns (bool) {
-        // TODO: this probably will break any unexecuted proposals.
-        // should we just delete any unexecuted actions? (requires new index array)
-        // maybe we need to store moloch address in the action and verify it
+        // TODO: withdraw any funds from dao first? may need to verify this on the front end
         moloch = IMOLOCH(_moloch);
         molochDepositToken = moloch.depositToken();
+        // verify that moloch address has a deposit token and it is not zero
+        require(molochDepositToken != address(0), ERROR_ZERO_DEPOSIT_TOKEN);
         emit ChangeOwner(_moloch);
         return true;
     }
+
 
     function setModule(address _module) external thisOnly returns (bool) {
         module = _module;
@@ -395,12 +426,11 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     
     //  -- Helper Functions --
     function isPassed(uint256 _proposalId) internal returns (bool) {
-        // if met execution can proceed before proposal is processed
         uint256 totalShares = moloch.totalShares();
         bool[6] memory flags = moloch.getProposalFlags(_proposalId);
+        require(flags[0], ERROR_NOT_SPONSORED);
 
-        (, , , , , , , , , , uint256 yesVotes, uint256 noVotes) = moloch.proposals(_proposalId);
-        
+        // if any of these branches are true, let action proceed before proposal is processed
         if (flags[2]) {
             // if proposal has passed dao return true
             return true;
@@ -408,11 +438,11 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
 
         if(module != address(0) && msg.sender==module){
             // if module is set, proposal is sposored and sender is module
-            require(flags[0], ERROR_NOT_SPONSORED);
             return true;
         }
-
+        
         if (minQuorum != 0) {
+            (, , , , , , , , , , uint256 yesVotes, uint256 noVotes) = moloch.proposals(_proposalId);
             uint256 quorum = yesVotes * 100 / totalShares;
             // if quorum is set it must be met and there can be no NO votes
             return quorum >= minQuorum && noVotes < 1;  
@@ -434,7 +464,6 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         return keccak256(abi.encode(targets, values, datas));
     }
 
-    receive() external payable {}
     fallback() external payable {}
 }
 
@@ -456,6 +485,7 @@ contract NeapolitanMinionFactory is CloneFactory {
     address payable immutable public template; // fixed template for minion using eip-1167 proxy pattern
     address[] public minionList; 
     mapping (address => AMinion) public minions;
+    string public constant minionType = "Neapolitan minion";
     
     event SummonMinion(address indexed minion, address indexed moloch, string details, string minionType, uint256 minQuorum);
     
@@ -473,9 +503,7 @@ contract NeapolitanMinionFactory is CloneFactory {
         string memory details, 
         uint256 minQuorum) external returns (address) {
         NeapolitanMinion minion = NeapolitanMinion(createClone(template));
-        require(minQuorum >= 0 && minQuorum <= 100, "MinionFactory: minQuorum must be 0 to 100");
         minion.init(moloch, minQuorum);
-        string memory minionType = "Neapolitan minion";
         
         minions[address(minion)] = AMinion(moloch, details);
         minionList.push(address(minion));
