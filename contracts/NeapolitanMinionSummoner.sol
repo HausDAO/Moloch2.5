@@ -212,9 +212,9 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         _;
     }
 
-    constructor () {
-        initialized = true;
-    }
+    // constructor () {
+    //     initialized = true;
+    // }
     function init(address _moloch, uint256 _minQuorum) external {
         require(!initialized, ERROR_INIT); 
         // min quorum must be between 0% and 100%, if 0 early execution is disabled
