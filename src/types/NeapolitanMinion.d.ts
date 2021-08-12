@@ -28,6 +28,7 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     "crossWithdraw(address,address,uint256,bool)": FunctionFragment;
     "deleteAction(uint256)": FunctionFragment;
     "doWithdraw(address,uint256)": FunctionFragment;
+    "escapeHatch(address,uint256,bytes)": FunctionFragment;
     "executeAction(uint256,address[],uint256[],bytes[])": FunctionFragment;
     "hashOperation(address[],uint256[],bytes[])": FunctionFragment;
     "init(address,uint256)": FunctionFragment;
@@ -40,7 +41,7 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)": FunctionFragment;
     "onERC1155Received(address,address,uint256,uint256,bytes)": FunctionFragment;
     "onERC721Received(address,address,uint256,bytes)": FunctionFragment;
-    "proposeAction(address[],uint256[],bytes[],address,uint256,string)": FunctionFragment;
+    "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)": FunctionFragment;
     "setModule(address)": FunctionFragment;
     "sign(bytes32,bytes32,bytes4)": FunctionFragment;
     "signatures(bytes32)": FunctionFragment;
@@ -66,6 +67,10 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
   encodeFunctionData(
     functionFragment: "doWithdraw",
     values: [string, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "escapeHatch",
+    values: [string, BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "executeAction",
@@ -111,7 +116,8 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
       BytesLike[],
       string,
       BigNumberish,
-      string
+      string,
+      boolean
     ]
   ): string;
   encodeFunctionData(functionFragment: "setModule", values: [string]): string;
@@ -142,6 +148,10 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "doWithdraw", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "escapeHatch",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "executeAction",
     data: BytesLike
@@ -190,8 +200,10 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
     "CrossWithdraw(address,address,uint256)": EventFragment;
     "DoWithdraw(address,uint256)": EventFragment;
     "ExecuteAction(bytes32,uint256,uint256,address,uint256,bytes,address)": EventFragment;
+    "ExecuteEscapeHatch(address,uint256,bytes,address)": EventFragment;
     "ExecuteSignature(uint256,address)": EventFragment;
     "ProposeAction(bytes32,uint256,uint256,address,uint256,bytes)": EventFragment;
+    "ProposeNewAction(bytes32,uint256,address,uint256,address,bool)": EventFragment;
     "ProposeSignature(uint256,bytes32,address)": EventFragment;
     "PulledFunds(address,uint256)": EventFragment;
     "SetModule(address)": EventFragment;
@@ -204,8 +216,10 @@ interface NeapolitanMinionInterface extends ethers.utils.Interface {
   getEvent(nameOrSignatureOrTopic: "CrossWithdraw"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "DoWithdraw"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ExecuteAction"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "ExecuteEscapeHatch"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ExecuteSignature"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ProposeAction"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "ProposeNewAction"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ProposeSignature"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "PulledFunds"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "SetModule"): EventFragment;
@@ -236,12 +250,14 @@ export class NeapolitanMinion extends Contract {
       token: string;
       amount: BigNumber;
       moloch: string;
+      memberOrModule: boolean;
       0: string;
       1: string;
       2: boolean;
       3: string;
       4: BigNumber;
       5: string;
+      6: boolean;
     }>;
 
     "actions(uint256)"(
@@ -254,12 +270,14 @@ export class NeapolitanMinion extends Contract {
       token: string;
       amount: BigNumber;
       moloch: string;
+      memberOrModule: boolean;
       0: string;
       1: string;
       2: boolean;
       3: string;
       4: BigNumber;
       5: string;
+      6: boolean;
     }>;
 
     cancelAction(
@@ -317,6 +335,20 @@ export class NeapolitanMinion extends Contract {
     "doWithdraw(address,uint256)"(
       token: string,
       amount: BigNumberish,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    escapeHatch(
+      actionTo: string,
+      actionValue: BigNumberish,
+      actionData: BytesLike,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    "escapeHatch(address,uint256,bytes)"(
+      actionTo: string,
+      actionValue: BigNumberish,
+      actionData: BytesLike,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
@@ -501,16 +533,18 @@ export class NeapolitanMinion extends Contract {
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
+      memberOrModule: boolean,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "proposeAction(address[],uint256[],bytes[],address,uint256,string)"(
+    "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)"(
       actionTos: string[],
       actionValues: BigNumberish[],
       actionDatas: BytesLike[],
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
+      memberOrModule: boolean,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
@@ -569,12 +603,14 @@ export class NeapolitanMinion extends Contract {
     token: string;
     amount: BigNumber;
     moloch: string;
+    memberOrModule: boolean;
     0: string;
     1: string;
     2: boolean;
     3: string;
     4: BigNumber;
     5: string;
+    6: boolean;
   }>;
 
   "actions(uint256)"(
@@ -587,12 +623,14 @@ export class NeapolitanMinion extends Contract {
     token: string;
     amount: BigNumber;
     moloch: string;
+    memberOrModule: boolean;
     0: string;
     1: string;
     2: boolean;
     3: string;
     4: BigNumber;
     5: string;
+    6: boolean;
   }>;
 
   cancelAction(
@@ -650,6 +688,20 @@ export class NeapolitanMinion extends Contract {
   "doWithdraw(address,uint256)"(
     token: string,
     amount: BigNumberish,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  escapeHatch(
+    actionTo: string,
+    actionValue: BigNumberish,
+    actionData: BytesLike,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  "escapeHatch(address,uint256,bytes)"(
+    actionTo: string,
+    actionValue: BigNumberish,
+    actionData: BytesLike,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
@@ -789,16 +841,18 @@ export class NeapolitanMinion extends Contract {
     withdrawToken: string,
     withdrawAmount: BigNumberish,
     details: string,
+    memberOrModule: boolean,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "proposeAction(address[],uint256[],bytes[],address,uint256,string)"(
+  "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)"(
     actionTos: string[],
     actionValues: BigNumberish[],
     actionDatas: BytesLike[],
     withdrawToken: string,
     withdrawAmount: BigNumberish,
     details: string,
+    memberOrModule: boolean,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
@@ -857,12 +911,14 @@ export class NeapolitanMinion extends Contract {
       token: string;
       amount: BigNumber;
       moloch: string;
+      memberOrModule: boolean;
       0: string;
       1: string;
       2: boolean;
       3: string;
       4: BigNumber;
       5: string;
+      6: boolean;
     }>;
 
     "actions(uint256)"(
@@ -875,12 +931,14 @@ export class NeapolitanMinion extends Contract {
       token: string;
       amount: BigNumber;
       moloch: string;
+      memberOrModule: boolean;
       0: string;
       1: string;
       2: boolean;
       3: string;
       4: BigNumber;
       5: string;
+      6: boolean;
     }>;
 
     cancelAction(
@@ -937,6 +995,20 @@ export class NeapolitanMinion extends Contract {
       amount: BigNumberish,
       overrides?: CallOverrides
     ): Promise<void>;
+
+    escapeHatch(
+      actionTo: string,
+      actionValue: BigNumberish,
+      actionData: BytesLike,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    "escapeHatch(address,uint256,bytes)"(
+      actionTo: string,
+      actionValue: BigNumberish,
+      actionData: BytesLike,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
 
     executeAction(
       proposalId: BigNumberish,
@@ -1074,16 +1146,18 @@ export class NeapolitanMinion extends Contract {
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
+      memberOrModule: boolean,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    "proposeAction(address[],uint256[],bytes[],address,uint256,string)"(
+    "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)"(
       actionTos: string[],
       actionValues: BigNumberish[],
       actionDatas: BytesLike[],
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
+      memberOrModule: boolean,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -1150,6 +1224,13 @@ export class NeapolitanMinion extends Contract {
       executor: null
     ): EventFilter;
 
+    ExecuteEscapeHatch(
+      target: null,
+      value: null,
+      data: null,
+      executor: null
+    ): EventFilter;
+
     ExecuteSignature(proposalId: null, executor: null): EventFilter;
 
     ProposeAction(
@@ -1159,6 +1240,15 @@ export class NeapolitanMinion extends Contract {
       target: null,
       value: null,
       data: null
+    ): EventFilter;
+
+    ProposeNewAction(
+      id: BytesLike | null,
+      proposalId: BigNumberish | null,
+      withdrawToken: null,
+      withdrawAmount: null,
+      moloch: null,
+      memberOrModule: null
     ): EventFilter;
 
     ProposeSignature(
@@ -1234,6 +1324,20 @@ export class NeapolitanMinion extends Contract {
     "doWithdraw(address,uint256)"(
       token: string,
       amount: BigNumberish,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
+    escapeHatch(
+      actionTo: string,
+      actionValue: BigNumberish,
+      actionData: BytesLike,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
+    "escapeHatch(address,uint256,bytes)"(
+      actionTo: string,
+      actionValue: BigNumberish,
+      actionData: BytesLike,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
@@ -1373,16 +1477,18 @@ export class NeapolitanMinion extends Contract {
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
+      memberOrModule: boolean,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "proposeAction(address[],uint256[],bytes[],address,uint256,string)"(
+    "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)"(
       actionTos: string[],
       actionValues: BigNumberish[],
       actionDatas: BytesLike[],
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
+      memberOrModule: boolean,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
@@ -1481,6 +1587,20 @@ export class NeapolitanMinion extends Contract {
     "doWithdraw(address,uint256)"(
       token: string,
       amount: BigNumberish,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    escapeHatch(
+      actionTo: string,
+      actionValue: BigNumberish,
+      actionData: BytesLike,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    "escapeHatch(address,uint256,bytes)"(
+      actionTo: string,
+      actionValue: BigNumberish,
+      actionData: BytesLike,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
@@ -1627,16 +1747,18 @@ export class NeapolitanMinion extends Contract {
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
+      memberOrModule: boolean,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "proposeAction(address[],uint256[],bytes[],address,uint256,string)"(
+    "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)"(
       actionTos: string[],
       actionValues: BigNumberish[],
       actionDatas: BytesLike[],
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
+      memberOrModule: boolean,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 

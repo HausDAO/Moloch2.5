@@ -23,6 +23,7 @@ import { FunctionFragment, EventFragment, Result } from "@ethersproject/abi";
 interface NeapolitanMinionFactoryInterface extends ethers.utils.Interface {
   functions: {
     "minionList(uint256)": FunctionFragment;
+    "minionType()": FunctionFragment;
     "minions(address)": FunctionFragment;
     "summonMinion(address,string,uint256)": FunctionFragment;
     "template()": FunctionFragment;
@@ -32,6 +33,10 @@ interface NeapolitanMinionFactoryInterface extends ethers.utils.Interface {
     functionFragment: "minionList",
     values: [BigNumberish]
   ): string;
+  encodeFunctionData(
+    functionFragment: "minionType",
+    values?: undefined
+  ): string;
   encodeFunctionData(functionFragment: "minions", values: [string]): string;
   encodeFunctionData(
     functionFragment: "summonMinion",
@@ -40,6 +45,7 @@ interface NeapolitanMinionFactoryInterface extends ethers.utils.Interface {
   encodeFunctionData(functionFragment: "template", values?: undefined): string;
 
   decodeFunctionResult(functionFragment: "minionList", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "minionType", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "minions", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "summonMinion",
@@ -79,6 +85,14 @@ export class NeapolitanMinionFactory extends Contract {
       arg0: BigNumberish,
       overrides?: CallOverrides
     ): Promise<{
+      0: string;
+    }>;
+
+    minionType(overrides?: CallOverrides): Promise<{
+      0: string;
+    }>;
+
+    "minionType()"(overrides?: CallOverrides): Promise<{
       0: string;
     }>;
 
@@ -132,6 +146,10 @@ export class NeapolitanMinionFactory extends Contract {
     overrides?: CallOverrides
   ): Promise<string>;
 
+  minionType(overrides?: CallOverrides): Promise<string>;
+
+  "minionType()"(overrides?: CallOverrides): Promise<string>;
+
   minions(
     arg0: string,
     overrides?: CallOverrides
@@ -177,6 +195,10 @@ export class NeapolitanMinionFactory extends Contract {
       arg0: BigNumberish,
       overrides?: CallOverrides
     ): Promise<string>;
+
+    minionType(overrides?: CallOverrides): Promise<string>;
+
+    "minionType()"(overrides?: CallOverrides): Promise<string>;
 
     minions(
       arg0: string,
@@ -238,6 +260,10 @@ export class NeapolitanMinionFactory extends Contract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    minionType(overrides?: CallOverrides): Promise<BigNumber>;
+
+    "minionType()"(overrides?: CallOverrides): Promise<BigNumber>;
+
     minions(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
 
     "minions(address)"(
@@ -274,6 +300,10 @@ export class NeapolitanMinionFactory extends Contract {
       arg0: BigNumberish,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
+
+    minionType(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    "minionType()"(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     minions(
       arg0: string,

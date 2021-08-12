@@ -165,6 +165,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         address token;
         uint256 amount;
         address moloch;
+        bool memberOrModule; // 0 anyone , 1 memberOrModuleOnly
     }
 
     mapping (bytes32 => DAOSignature) public signatures; // msgHash => Signature
@@ -173,6 +174,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         bytes4 magicValue;
     }
 
+    event ProposeNewAction(bytes32 indexed id, uint256 indexed proposalId, address withdrawToken, uint256 withdrawAmount, address moloch, bool memberOrModule);
     event ProposeAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address target, uint256 value, bytes data);
     event ExecuteAction(bytes32 indexed id, uint256 indexed proposalId, uint256 index, address target, uint256 value, bytes data, address executor);
     event ExecuteEscapeHatch(address target, uint256 value, bytes data, address executor);
@@ -286,6 +288,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
             magicValue: magicValue
         });
     }
+
     
     //  -- Proposal Functions --
     function proposeAction(
@@ -294,7 +297,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         bytes[] calldata actionDatas,
         address withdrawToken,
         uint256 withdrawAmount,
-        string calldata details
+        string calldata details,
+        bool memberOrModule
     ) external memberOrModuleOnly returns (uint256) {
 
         require(actionTos.length == actionValues.length, ERROR_LENGTH_MISMATCH);
@@ -311,7 +315,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
             details
         );
 
-        saveAction(proposalId, actionTos, actionValues, actionDatas, withdrawToken, withdrawAmount );
+        saveAction(proposalId, actionTos, actionValues, actionDatas, withdrawToken, withdrawAmount, memberOrModule );
 
         return proposalId;
     }
@@ -344,7 +348,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         uint256[] calldata actionValues,
         bytes[] calldata actionDatas,
         address withdrawToken,
-        uint256 withdrawAmount
+        uint256 withdrawAmount,
+        bool memberOrModule
         ) internal {
         bytes32 id = hashOperation(actionTos, actionValues, actionDatas);
         Action memory action = Action({
@@ -353,9 +358,11 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
             executed: false,
             token: withdrawToken,
             amount: withdrawAmount,
-            moloch: address(moloch)
+            moloch: address(moloch),
+            memberOrModule: memberOrModule
         });
         actions[proposalId] = action;
+        emit ProposeNewAction(id, proposalId, withdrawToken, withdrawAmount, address(moloch), memberOrModule);
         for (uint256 i = 0; i < actionTos.length; ++i) {
             emit ProposeAction(id, proposalId, i, actionTos[i], actionValues[i], actionDatas[i]);
         }
@@ -366,9 +373,13 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         uint256 proposalId,
         address[] calldata actionTos,
         uint256[] calldata actionValues,
-        bytes[] calldata actionDatas) external memberOrModuleOnly returns (bool) {
+        bytes[] calldata actionDatas) external returns (bool) {
         Action memory action = actions[proposalId];
         require(!action.executed, ERROR_EXECUTED);
+
+        if(action.memberOrModule) {
+            require(isMember(msg.sender) || msg.sender == module, ERROR_MEMBER_OR_MODULE_ONLY);
+        }
 
         require(isPassed(proposalId), ERROR_REQS_NOT_MET);
         require(action.id != 0, ERROR_DELETED);
@@ -465,6 +476,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     }
 
     fallback() external payable {}
+    receive() external payable {}
 }
 
 contract CloneFactory {
