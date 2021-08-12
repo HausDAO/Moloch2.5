@@ -155,7 +155,8 @@ describe("Delete Action", function () {
           [action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 0, moloch)
@@ -168,7 +169,8 @@ describe("Delete Action", function () {
           // [action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 1, moloch)
@@ -196,7 +198,8 @@ describe("Delete Action", function () {
           [action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 0, moloch)
