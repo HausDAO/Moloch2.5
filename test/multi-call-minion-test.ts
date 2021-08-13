@@ -162,7 +162,8 @@ describe("Multi-call Minion", function () {
           [action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
         
         await doProposal(true, 0, moloch)
@@ -193,7 +194,8 @@ describe("Multi-call Minion", function () {
           [action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
         
         await doProposal(true, 0, moloch)
@@ -232,7 +234,8 @@ describe("Multi-call Minion", function () {
           [action_1, action_2],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 0, moloch)
@@ -262,7 +265,8 @@ describe("Multi-call Minion", function () {
           [action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 0, moloch)
@@ -289,7 +293,8 @@ describe("Multi-call Minion", function () {
           [action_2, action_3],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await fastForwardBlocks(1);
@@ -330,7 +335,8 @@ describe("Multi-call Minion", function () {
           [action_1, action_2],
           anyErc20.address,
           10,
-          "test"
+          "test",
+          false
         );
 
         await fastForwardBlocks(1);
@@ -372,7 +378,8 @@ describe("Multi-call Minion", function () {
           [action_1, action_2],
           anyErc20.address,
           10,
-          "test"
+          "test",
+          false
         );
 
         await fastForwardBlocks(1);
@@ -406,7 +413,8 @@ describe("Multi-call Minion", function () {
           [action_1],
           anyErc20.address,
           10,
-          "test"
+          "test",
+          false
         );
 
         await fastForwardBlocks(1);
@@ -453,7 +461,8 @@ describe("Multi-call Minion", function () {
           [action_1, action_2],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 0, moloch)
@@ -486,7 +495,8 @@ describe("Multi-call Minion", function () {
           [action_1, action_2],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 0, moloch)
@@ -521,7 +531,8 @@ describe("Multi-call Minion", function () {
           [action_1, action_2],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 0, moloch)
@@ -553,7 +564,8 @@ describe("Multi-call Minion", function () {
           [action_1, action_2],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 0, moloch)
@@ -593,7 +605,8 @@ describe("Multi-call Minion", function () {
           [action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 0, moloch)
@@ -620,7 +633,8 @@ describe("Multi-call Minion", function () {
           [action_2, action_3],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await fastForwardBlocks(1);
@@ -655,7 +669,8 @@ describe("Multi-call Minion", function () {
           [action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await doProposal(true, 0, moloch)
@@ -682,7 +697,8 @@ describe("Multi-call Minion", function () {
           [action_2, action_3],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         );
 
         await fastForwardBlocks(1);

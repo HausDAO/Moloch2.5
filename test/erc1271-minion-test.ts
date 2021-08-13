@@ -118,7 +118,8 @@ describe('ERC1271 Minion Functionality', function () {
           [sign_action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         )
         
         await doProposal(true, 0, moloch)
@@ -141,7 +142,8 @@ describe('ERC1271 Minion Functionality', function () {
           [sign_action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         )
         
         expect(erc1271Minion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.be.revertedWith('erc1271::invalid signature')
@@ -163,7 +165,8 @@ describe('ERC1271 Minion Functionality', function () {
           [sign_action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         )
         
         await fastForwardBlocks(1)
@@ -184,7 +187,8 @@ describe('ERC1271 Minion Functionality', function () {
           [sign_action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         )
         
         await fastForwardBlocks(1)
@@ -204,7 +208,8 @@ describe('ERC1271 Minion Functionality', function () {
           [sign_action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         )
         
         await doProposal(false, 0, moloch)
@@ -227,7 +232,8 @@ describe('ERC1271 Minion Functionality', function () {
           [sign_action_1],
           anyErc20.address,
           0,
-          "test"
+          "test",
+          false
         )
         
         await doProposal(true, 0, moloch)
