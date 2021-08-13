@@ -210,5 +210,39 @@ describe("Delete Action", function () {
 
       
     });
+    
+    describe('Edge cases', function() {
+      it("Allows a proposal to delete itself", async function() {
+        const delete_action_0 = neapolitanMinion.interface.encodeFunctionData("deleteAction", [0])
+
+        
+        // now delete the action
+        await neapolitanMinion.proposeAction(
+          [neapolitanMinion.address],
+          [0],
+          [delete_action_0],
+          // [action_1],
+          anyErc20.address,
+          0,
+          "test",
+          false
+        );
+        expect((await neapolitanMinion.actions(0)).proposer).to.equal(deployerAddress)
+        await doProposal(true, 0, moloch)
+
+
+        await neapolitanMinion.executeAction(
+          0,
+          [neapolitanMinion.address],
+          [0],
+          [delete_action_0]
+        );
+      expect((await neapolitanMinion.actions(0)).proposer).to.equal(zeroAddress)
+        
+
+      expect(neapolitanMinion.executeAction(0, [anyErc20.address], [0], [delete_action_0])).to.be.revertedWith('Minion::action was deleted')
+
+      })
+    })
   });
 });
