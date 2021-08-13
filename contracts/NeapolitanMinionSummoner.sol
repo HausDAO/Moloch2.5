@@ -376,6 +376,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         bytes[] calldata actionDatas) external returns (bool) {
         Action memory action = actions[proposalId];
         require(!action.executed, ERROR_EXECUTED);
+        // Mark executed before doing any external stuff
+        actions[proposalId].executed = true;
 
         if(action.memberOrModule) {
             require(isMember(msg.sender) || msg.sender == module, ERROR_MEMBER_OR_MODULE_ONLY);
@@ -396,7 +398,6 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         }
         
         // execute calls
-        actions[proposalId].executed = true;
         for (uint256 i = 0; i < actionTos.length; ++i) {
             require(address(this).balance >= actionValues[i], ERROR_FUNDS);
             (bool success, ) = actionTos[i].call{value: actionValues[i]}(actionDatas[i]);
