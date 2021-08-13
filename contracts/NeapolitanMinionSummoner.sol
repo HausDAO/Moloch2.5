@@ -212,9 +212,6 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         _;
     }
 
-    // constructor () {
-    //     initialized = true;
-    // }
     function init(address _moloch, uint256 _minQuorum) external {
         require(!initialized, ERROR_INIT); 
         // min quorum must be between 0% and 100%, if 0 early execution is disabled
@@ -223,7 +220,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         minQuorum = _minQuorum;
         molochDepositToken = moloch.depositToken();
         // verify that moloch address has a deposit token and it is not zero
-        require(molochDepositToken != address(0), ERROR_ZERO_DEPOSIT_TOKEN);
+        // require(molochDepositToken != address(0), ERROR_ZERO_DEPOSIT_TOKEN);
         initialized = true; 
         emit ChangeOwner(_moloch);
     }
@@ -507,8 +504,10 @@ contract NeapolitanMinionFactory is CloneFactory {
         string details; 
     }
     
-    constructor(address payable _template) {
+    constructor(address payable _template, address _molochTemplate) {
         template = _template;
+        NeapolitanMinion minion = NeapolitanMinion(_template); 
+        minion.init(_molochTemplate,0);
     }
     
     function summonMinion(

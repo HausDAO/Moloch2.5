@@ -182,7 +182,7 @@ describe("Multi-call Minion", function () {
         );
       });
 
-      it("Does not allow anyone else to execute", async function () {
+      it("Does not allow anyone else to execute in member or module prop", async function () {
         const action_1 = anyErc20.interface.encodeFunctionData("transfer", [
           aliceAddress,
           10,
@@ -195,7 +195,7 @@ describe("Multi-call Minion", function () {
           anyErc20.address,
           0,
           "test",
-          false
+          true
         );
         
         await doProposal(true, 0, moloch)
