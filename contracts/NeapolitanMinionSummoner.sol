@@ -503,10 +503,10 @@ contract NeapolitanMinionFactory is CloneFactory {
         string details; 
     }
     
-    constructor(address payable _template) {
+    constructor(address payable _template, address _molochTemplate) {
         template = _template;
         NeapolitanMinion minion = NeapolitanMinion(_template); 
-        minion.init(address(0),0);
+        minion.init(_molochTemplate,0);
     }
     
     function summonMinion(
