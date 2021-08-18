@@ -24,11 +24,11 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
   functions: {
     "actions(address,uint256)": FunctionFragment;
     "cancelAction(uint256,address)": FunctionFragment;
-    "executeAction(uint256,address)": FunctionFragment;
+    "escrowBalances(address,uint256,address)": FunctionFragment;
     "onERC1155Received(address,address,uint256,uint256,bytes)": FunctionFragment;
     "onERC721Received(address,address,uint256,bytes)": FunctionFragment;
     "proposeTribute(address,address[],uint256[3][],address,uint256[3],string)": FunctionFragment;
-    "rescueTribute(uint256,address,address,string)": FunctionFragment;
+    "withdrawToDestination(uint256,address,address[])": FunctionFragment;
   };
 
   encodeFunctionData(
@@ -40,8 +40,8 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
     values: [BigNumberish, string]
   ): string;
   encodeFunctionData(
-    functionFragment: "executeAction",
-    values: [BigNumberish, string]
+    functionFragment: "escrowBalances",
+    values: [string, BigNumberish, string]
   ): string;
   encodeFunctionData(
     functionFragment: "onERC1155Received",
@@ -63,8 +63,8 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
     ]
   ): string;
   encodeFunctionData(
-    functionFragment: "rescueTribute",
-    values: [BigNumberish, string, string, string]
+    functionFragment: "withdrawToDestination",
+    values: [BigNumberish, string, string[]]
   ): string;
 
   decodeFunctionResult(functionFragment: "actions", data: BytesLike): Result;
@@ -73,7 +73,7 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "executeAction",
+    functionFragment: "escrowBalances",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -89,7 +89,7 @@ interface EscrowMinionInterface extends ethers.utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "rescueTribute",
+    functionFragment: "withdrawToDestination",
     data: BytesLike
   ): Result;
 
@@ -125,14 +125,8 @@ export class EscrowMinion extends Contract {
     ): Promise<{
       vaultAddress: string;
       proposer: string;
-      molochAddress: string;
-      proposalId: BigNumber;
-      executed: boolean;
       0: string;
       1: string;
-      2: string;
-      3: BigNumber;
-      4: boolean;
     }>;
 
     "actions(address,uint256)"(
@@ -142,14 +136,8 @@ export class EscrowMinion extends Contract {
     ): Promise<{
       vaultAddress: string;
       proposer: string;
-      molochAddress: string;
-      proposalId: BigNumber;
-      executed: boolean;
       0: string;
       1: string;
-      2: string;
-      3: BigNumber;
-      4: boolean;
     }>;
 
     cancelAction(
@@ -164,17 +152,25 @@ export class EscrowMinion extends Contract {
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    executeAction(
-      proposalId: BigNumberish,
-      molochAddress: string,
-      overrides?: Overrides
-    ): Promise<ContractTransaction>;
+    escrowBalances(
+      arg0: string,
+      arg1: BigNumberish,
+      arg2: string,
+      overrides?: CallOverrides
+    ): Promise<{
+      executed: boolean;
+      0: boolean;
+    }>;
 
-    "executeAction(uint256,address)"(
-      proposalId: BigNumberish,
-      molochAddress: string,
-      overrides?: Overrides
-    ): Promise<ContractTransaction>;
+    "escrowBalances(address,uint256,address)"(
+      arg0: string,
+      arg1: BigNumberish,
+      arg2: string,
+      overrides?: CallOverrides
+    ): Promise<{
+      executed: boolean;
+      0: boolean;
+    }>;
 
     onERC1155Received(
       arg0: string,
@@ -238,19 +234,17 @@ export class EscrowMinion extends Contract {
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    rescueTribute(
+    withdrawToDestination(
       proposalId: BigNumberish,
       molochAddress: string,
-      newDestination: string,
-      details: string,
+      tokenAddresses: string[],
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "rescueTribute(uint256,address,address,string)"(
+    "withdrawToDestination(uint256,address,address[])"(
       proposalId: BigNumberish,
       molochAddress: string,
-      newDestination: string,
-      details: string,
+      tokenAddresses: string[],
       overrides?: Overrides
     ): Promise<ContractTransaction>;
   };
@@ -262,14 +256,8 @@ export class EscrowMinion extends Contract {
   ): Promise<{
     vaultAddress: string;
     proposer: string;
-    molochAddress: string;
-    proposalId: BigNumber;
-    executed: boolean;
     0: string;
     1: string;
-    2: string;
-    3: BigNumber;
-    4: boolean;
   }>;
 
   "actions(address,uint256)"(
@@ -279,14 +267,8 @@ export class EscrowMinion extends Contract {
   ): Promise<{
     vaultAddress: string;
     proposer: string;
-    molochAddress: string;
-    proposalId: BigNumber;
-    executed: boolean;
     0: string;
     1: string;
-    2: string;
-    3: BigNumber;
-    4: boolean;
   }>;
 
   cancelAction(
@@ -301,17 +283,19 @@ export class EscrowMinion extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  executeAction(
-    proposalId: BigNumberish,
-    molochAddress: string,
-    overrides?: Overrides
-  ): Promise<ContractTransaction>;
+  escrowBalances(
+    arg0: string,
+    arg1: BigNumberish,
+    arg2: string,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
 
-  "executeAction(uint256,address)"(
-    proposalId: BigNumberish,
-    molochAddress: string,
-    overrides?: Overrides
-  ): Promise<ContractTransaction>;
+  "escrowBalances(address,uint256,address)"(
+    arg0: string,
+    arg1: BigNumberish,
+    arg2: string,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
 
   onERC1155Received(
     arg0: string,
@@ -367,19 +351,17 @@ export class EscrowMinion extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  rescueTribute(
+  withdrawToDestination(
     proposalId: BigNumberish,
     molochAddress: string,
-    newDestination: string,
-    details: string,
+    tokenAddresses: string[],
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "rescueTribute(uint256,address,address,string)"(
+  "withdrawToDestination(uint256,address,address[])"(
     proposalId: BigNumberish,
     molochAddress: string,
-    newDestination: string,
-    details: string,
+    tokenAddresses: string[],
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
@@ -391,14 +373,8 @@ export class EscrowMinion extends Contract {
     ): Promise<{
       vaultAddress: string;
       proposer: string;
-      molochAddress: string;
-      proposalId: BigNumber;
-      executed: boolean;
       0: string;
       1: string;
-      2: string;
-      3: BigNumber;
-      4: boolean;
     }>;
 
     "actions(address,uint256)"(
@@ -408,14 +384,8 @@ export class EscrowMinion extends Contract {
     ): Promise<{
       vaultAddress: string;
       proposer: string;
-      molochAddress: string;
-      proposalId: BigNumber;
-      executed: boolean;
       0: string;
       1: string;
-      2: string;
-      3: BigNumber;
-      4: boolean;
     }>;
 
     cancelAction(
@@ -430,17 +400,19 @@ export class EscrowMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<void>;
 
-    executeAction(
-      proposalId: BigNumberish,
-      molochAddress: string,
+    escrowBalances(
+      arg0: string,
+      arg1: BigNumberish,
+      arg2: string,
       overrides?: CallOverrides
-    ): Promise<void>;
+    ): Promise<boolean>;
 
-    "executeAction(uint256,address)"(
-      proposalId: BigNumberish,
-      molochAddress: string,
+    "escrowBalances(address,uint256,address)"(
+      arg0: string,
+      arg1: BigNumberish,
+      arg2: string,
       overrides?: CallOverrides
-    ): Promise<void>;
+    ): Promise<boolean>;
 
     onERC1155Received(
       arg0: string,
@@ -496,19 +468,17 @@ export class EscrowMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    rescueTribute(
+    withdrawToDestination(
       proposalId: BigNumberish,
       molochAddress: string,
-      newDestination: string,
-      details: string,
+      tokenAddresses: string[],
       overrides?: CallOverrides
     ): Promise<void>;
 
-    "rescueTribute(uint256,address,address,string)"(
+    "withdrawToDestination(uint256,address,address[])"(
       proposalId: BigNumberish,
       molochAddress: string,
-      newDestination: string,
-      details: string,
+      tokenAddresses: string[],
       overrides?: CallOverrides
     ): Promise<void>;
   };
@@ -555,16 +525,18 @@ export class EscrowMinion extends Contract {
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    executeAction(
-      proposalId: BigNumberish,
-      molochAddress: string,
-      overrides?: Overrides
+    escrowBalances(
+      arg0: string,
+      arg1: BigNumberish,
+      arg2: string,
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    "executeAction(uint256,address)"(
-      proposalId: BigNumberish,
-      molochAddress: string,
-      overrides?: Overrides
+    "escrowBalances(address,uint256,address)"(
+      arg0: string,
+      arg1: BigNumberish,
+      arg2: string,
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     onERC1155Received(
@@ -621,19 +593,17 @@ export class EscrowMinion extends Contract {
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    rescueTribute(
+    withdrawToDestination(
       proposalId: BigNumberish,
       molochAddress: string,
-      newDestination: string,
-      details: string,
+      tokenAddresses: string[],
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "rescueTribute(uint256,address,address,string)"(
+    "withdrawToDestination(uint256,address,address[])"(
       proposalId: BigNumberish,
       molochAddress: string,
-      newDestination: string,
-      details: string,
+      tokenAddresses: string[],
       overrides?: Overrides
     ): Promise<BigNumber>;
   };
@@ -663,16 +633,18 @@ export class EscrowMinion extends Contract {
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    executeAction(
-      proposalId: BigNumberish,
-      molochAddress: string,
-      overrides?: Overrides
+    escrowBalances(
+      arg0: string,
+      arg1: BigNumberish,
+      arg2: string,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
-    "executeAction(uint256,address)"(
-      proposalId: BigNumberish,
-      molochAddress: string,
-      overrides?: Overrides
+    "escrowBalances(address,uint256,address)"(
+      arg0: string,
+      arg1: BigNumberish,
+      arg2: string,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     onERC1155Received(
@@ -729,19 +701,17 @@ export class EscrowMinion extends Contract {
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    rescueTribute(
+    withdrawToDestination(
       proposalId: BigNumberish,
       molochAddress: string,
-      newDestination: string,
-      details: string,
+      tokenAddresses: string[],
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "rescueTribute(uint256,address,address,string)"(
+    "withdrawToDestination(uint256,address,address[])"(
       proposalId: BigNumberish,
       molochAddress: string,
-      newDestination: string,
-      details: string,
+      tokenAddresses: string[],
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
   };
