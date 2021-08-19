@@ -431,6 +431,13 @@ describe.only('Escrow', function () {
         expect(await any1155.balanceOf(escrowMinion.address, 1)).to.equal(0)
       })
 
+      it.only('Fails to move 721s into escrow if destination does not support them', async function () {
+        await anyNft.setApprovalForAll(escrowMinion.address, true)
+        expect(escrowMinionAsAlice.proposeTribute(moloch.address, [anyNft.address], [[1,1,0]], anyNft.address, [5,0,0], 'test')).to.be.revertedWith('ERC721: transfer to non ERC721Receiver implementer')
+        
+        expect(await anyNft.ownerOf(1)).to.equal(aliceAddress)
+      })
+
       it('Moves ERC1155s into vault if proposal passes', async function () {
         await any1155AsAlice.setApprovalForAll(escrowMinion.address, true)
         await escrowMinionAsAlice.proposeTribute(moloch.address, [any1155.address], [[2,1,100]], neaMinion.address, [5,0,0], 'test')
@@ -640,11 +647,23 @@ describe.only('Escrow', function () {
         expect(await any1155.balanceOf(neaMinion.address, 1)).to.equal(0)
       })
     
-      // TODO
-      
-      // Does not move 721 unless safe
-      
-      // Check invalid type int
+      it('Fails to create a proposal with an invalid token type', async function () {
+        await anyNftAsAlice.approve(escrowMinion.address, 1)
+
+        expect(escrowMinionAsAlice.proposeTribute(moloch.address, [anyNft.address], [[3,1,0]], neaMinion.address, [5,0,0], 'test')).to.be.revertedWith('Invalid type')
+
+      })
+
+      it('Fails to create a proposal with a 0 token amount', async function () {
+        await anyErc20AsAlice.approve(escrowMinion.address, 100)
+        await anyNftAsAlice.approve(escrowMinion.address, 1)
+        await any1155AsAlice.setApprovalForAll(escrowMinion.address, true)
+
+        expect(escrowMinionAsAlice.proposeTribute(moloch.address, [anyErc20.address, anyNft.address, any1155.address], [[0,0,100], [1,1,0], [2, 1, 0]], neaMinion.address, [5,0,0], 'test')).to.be.revertedWith('!amount')
+        expect(escrowMinionAsAlice.proposeTribute(moloch.address, [anyErc20.address, anyNft.address, any1155.address], [[0,0,0], [1,1,0], [2, 1, 100]], neaMinion.address, [5,0,0], 'test')).to.be.revertedWith('!amount')
+
+
+      })
       
       
     })
