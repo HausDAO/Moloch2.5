@@ -108,18 +108,21 @@ contract EscrowMinion is
         ERC1155
     }
 
+    // Track the balance and withdrawl state for each token
     struct EscrowBalance {
         uint256[3] typesTokenIdsAmounts;
+        address tokenAddress;
         bool executed;
     }
 
+    // Store destination vault and proposer for each proposal
     struct TributeEscrowAction {
         address vaultAddress;
         address proposer;
     }
 
-    mapping(address => mapping(uint256 => TributeEscrowAction)) public actions; // proposalId => Action
-    mapping(address => mapping(uint256 => mapping(address => EscrowBalance)))
+    mapping(address => mapping(uint256 => TributeEscrowAction)) public actions; // moloch => proposalId => Action
+    mapping(address => mapping(uint256 => mapping(uint256 => EscrowBalance))) // moloch => proposal => token index => balance
         public escrowBalances;
 
     event ProposeAction(
@@ -135,11 +138,13 @@ contract EscrowMinion is
     event ExecuteAction(uint256 proposalId, address executor, address moloch);
     event ActionCanceled(uint256 proposalId, address moloch);
 
+    // Private tracking for destinations to ensure escrow can't get stuck
     mapping(TributeType => uint256) private _destinationChecked;
     uint256 private constant _NOT_CHECKED = 1;
     uint256 private constant _CHECKED = 2;
 
     constructor() {
+        // Follow a similar pattern to reentency guard from OZ
         _destinationChecked[TributeType.ERC721] = _NOT_CHECKED;
         _destinationChecked[TributeType.ERC1155] = _NOT_CHECKED;
     }
@@ -150,6 +155,7 @@ contract EscrowMinion is
         _destinationChecked[TributeType.ERC1155] = _NOT_CHECKED;
     }
 
+    // Safely receive ERC721s
     function onERC721Received(
         address,
         address,
@@ -162,6 +168,7 @@ contract EscrowMinion is
             );
     }
 
+    // Safely receive ERC1155s
     function onERC1155Received(
         address,
         address,
@@ -340,9 +347,10 @@ contract EscrowMinion is
         for (uint256 index = 0; index < tokenAddresses.length; index++) {
             // Store withdrawable balances
             escrowBalances[molochAddress][proposalId][
-                tokenAddresses[index]
+                index
             ] = EscrowBalance({
                 typesTokenIdsAmounts: typesTokenIdsAmounts[index],
+                tokenAddress: tokenAddresses[index],
                 executed: false
             });
 
@@ -351,7 +359,7 @@ contract EscrowMinion is
             if (_destinationChecked[TributeType.ERC1155] == _NOT_CHECKED)
                 checkERC1155Recipients(vaultAddress);
 
-            // do transfer
+            // Move tokens into escrow
             doTransfer(
                 tokenAddresses[index],
                 typesTokenIdsAmounts[index],
@@ -400,7 +408,6 @@ contract EscrowMinion is
 
         require(vaultAddress != address(0), "invalid vaultAddress");
 
-        // require length check
         require(
             typesTokenIdsAmounts.length == tokenAddresses.length,
             "!same-length"
@@ -432,20 +439,21 @@ contract EscrowMinion is
 
     function processWithdrawls(
         address molochAddress,
-        address[] memory tokenAddresses,
+        uint256[] calldata tokenIndices, // only withdraw indices in this list
         address destination,
         uint256 proposalId
     ) private {
-        for (uint256 index = 0; index < tokenAddresses.length; index++) {
+        for (uint256 index = 0; index < tokenIndices.length; index++) {
             // Retrieve withdrawable balances
             EscrowBalance storage escrowBalance = escrowBalances[molochAddress][
                 proposalId
-            ][tokenAddresses[index]];
+            ][tokenIndices[index]];
             require(!escrowBalance.executed, "executed");
+            require(escrowBalance.tokenAddress != address(0), "!token");
             escrowBalance.executed = true;
 
             doTransfer(
-                tokenAddresses[index],
+                escrowBalance.tokenAddress,
                 escrowBalance.typesTokenIdsAmounts,
                 address(this),
                 destination
@@ -456,12 +464,12 @@ contract EscrowMinion is
     function withdrawToDestination(
         uint256 proposalId,
         address molochAddress,
-        address[] calldata tokenAddresses
+        uint256[] calldata tokenIndices
     ) external nonReentrant {
         IMOLOCH thisMoloch = IMOLOCH(molochAddress);
         bool[6] memory flags = thisMoloch.getProposalFlags(proposalId);
 
-        require(flags[1], "proposal not processed");
+        require(flags[1] || flags[3], "proposal not processed and not cancelled");
 
         TributeEscrowAction memory action = actions[molochAddress][proposalId];
         address destination;
@@ -475,7 +483,7 @@ contract EscrowMinion is
 
         processWithdrawls(
             molochAddress,
-            tokenAddresses,
+            tokenIndices,
             destination,
             proposalId
         );

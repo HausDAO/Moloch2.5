@@ -164,7 +164,7 @@ describe.only('Escrow', function () {
         
         await moloch.processProposal(0)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
 
         expect(await anyNft.ownerOf(1)).to.equal(neaMinion.address)
 
@@ -184,7 +184,7 @@ describe.only('Escrow', function () {
         
         await moloch.processProposal(0)
 
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
         await fastForwardBlocks(1)
 
         expect(await anyNft.ownerOf(1)).to.equal(neaMinion.address)
@@ -206,7 +206,7 @@ describe.only('Escrow', function () {
         
         await moloch.processProposal(0)
 
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
         await fastForwardBlocks(1)
 
         expect(await anyNft.ownerOf(1)).to.equal(neaMinion.address)
@@ -229,7 +229,7 @@ describe.only('Escrow', function () {
         
         await moloch.processProposal(0)
 
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
         await fastForwardBlocks(1)
 
         expect(await anyNft.ownerOf(1)).to.equal(neaMinion.address)
@@ -251,7 +251,7 @@ describe.only('Escrow', function () {
         
         await moloch.processProposal(0)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
 
         expect(await anyNft.ownerOf(1)).to.equal(aliceAddress)
 
@@ -269,7 +269,7 @@ describe.only('Escrow', function () {
 
         await fastForwardBlocks(31)
         
-        expect(escrowMinionAsAlice.executeAction(0, moloch.address)).to.be.revertedWith('proposal not processed')
+        expect(escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])).to.be.revertedWith('proposal not processed')
       })
 
       it('Returns NFT to applicant if proposal is cancelled', async function () {
@@ -278,6 +278,7 @@ describe.only('Escrow', function () {
         
         await fastForwardBlocks(1)
         await escrowMinionAsAlice.cancelAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
         expect(await anyNft.ownerOf(1)).to.equal(aliceAddress)
       })
 
@@ -306,11 +307,60 @@ describe.only('Escrow', function () {
         
         await moloch.processProposal(0)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0, 1, 2])
 
         expect(await anyNft.ownerOf(1)).to.equal(neaMinion.address)
         expect(await anyNft.ownerOf(2)).to.equal(neaMinion.address)
         expect(await anyNft.ownerOf(4)).to.equal(neaMinion.address)
+
+      })
+
+      it('Moves multiple NFTs into vault if proposal passes in multiple transactions', async function () {
+        await anyNftAsAlice.setApprovalForAll(escrowMinion.address, true)
+        await escrowMinionAsAlice.proposeTribute(moloch.address, [anyNft.address, anyNft.address, anyNft.address], [[1,1,0], [1,2,0], [1,4,0]], neaMinion.address, [5,0,0], 'test')
+        
+        await fastForwardBlocks(1)
+        await moloch.sponsorProposal(0)
+        await fastForwardBlocks(5)
+        
+        await moloch.submitVote(0, 1)
+
+        await fastForwardBlocks(31)
+        
+        await moloch.processProposal(0)
+        
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [1, 2])
+        expect(await anyNft.ownerOf(1)).to.equal(escrowMinion.address)
+        expect(await anyNft.ownerOf(2)).to.equal(neaMinion.address)
+        expect(await anyNft.ownerOf(4)).to.equal(neaMinion.address)
+
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
+        expect(await anyNft.ownerOf(1)).to.equal(neaMinion.address)
+        expect(await anyNft.ownerOf(2)).to.equal(neaMinion.address)
+        expect(await anyNft.ownerOf(4)).to.equal(neaMinion.address)
+
+      })
+
+      it('Does not allow the same withdrawl to happen multiple times', async function () {
+        await anyNftAsAlice.setApprovalForAll(escrowMinion.address, true)
+        await escrowMinionAsAlice.proposeTribute(moloch.address, [anyNft.address, anyNft.address, anyNft.address], [[1,1,0], [1,2,0], [1,4,0]], neaMinion.address, [5,0,0], 'test')
+        
+        await fastForwardBlocks(1)
+        await moloch.sponsorProposal(0)
+        await fastForwardBlocks(5)
+        
+        await moloch.submitVote(0, 1)
+
+        await fastForwardBlocks(31)
+        
+        await moloch.processProposal(0)
+        
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0, 1])
+        expect(escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0, 1])).to.be.revertedWith('executed')
+
+        expect(await anyNft.ownerOf(1)).to.equal(neaMinion.address)
+        expect(await anyNft.ownerOf(2)).to.equal(neaMinion.address)
+        expect(await anyNft.ownerOf(4)).to.equal(escrowMinion.address)
 
       })
 
@@ -337,7 +387,7 @@ describe.only('Escrow', function () {
         
         await moloch.processProposal(0)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0, 1, 2])
 
         expect(await anyNft.ownerOf(1)).to.equal(aliceAddress)
         expect(await anyNft.ownerOf(2)).to.equal(aliceAddress)
@@ -355,6 +405,7 @@ describe.only('Escrow', function () {
 
         await fastForwardBlocks(1)
         await escrowMinionAsAlice.cancelAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0, 1, 2])
         
         expect(await anyNft.ownerOf(1)).to.equal(aliceAddress)
         expect(await anyNft.ownerOf(2)).to.equal(aliceAddress)
@@ -386,7 +437,7 @@ describe.only('Escrow', function () {
         
         await doProposal(true, 0, moloch)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
 
         expect(await any1155.balanceOf(aliceAddress, 1)).to.equal(50)
         expect(await any1155.balanceOf(neaMinion.address, 1)).to.equal(100)
@@ -398,7 +449,7 @@ describe.only('Escrow', function () {
         
         await doProposal(false, 0, moloch)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
 
         expect(await any1155.balanceOf(aliceAddress, 1)).to.equal(150)
         expect(await any1155.balanceOf(neaMinion.address, 1)).to.equal(0)
@@ -410,6 +461,7 @@ describe.only('Escrow', function () {
 
         await fastForwardBlocks(1)
         await escrowMinionAsAlice.cancelAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
         
         expect(await any1155.balanceOf(aliceAddress, 1)).to.equal(150)
         expect(await any1155.balanceOf(neaMinion.address, 1)).to.equal(0)
@@ -423,7 +475,7 @@ describe.only('Escrow', function () {
 
         await doProposal(true, 0, moloch)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0, 1])
 
         expect(await any1155.balanceOf(aliceAddress, 1)).to.equal(50)
         expect(await any1155.balanceOf(neaMinion.address, 1)).to.equal(100)
@@ -456,7 +508,7 @@ describe.only('Escrow', function () {
         
         await moloch.processProposal(0)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
 
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
         expect(await anyErc20.balanceOf(neaMinion.address)).to.equal(100)
@@ -476,7 +528,7 @@ describe.only('Escrow', function () {
         
         await moloch.processProposal(0)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
 
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(100)
         expect(await anyErc20.balanceOf(neaMinion.address)).to.equal(0)
@@ -487,6 +539,7 @@ describe.only('Escrow', function () {
         await escrowMinionAsAlice.proposeTribute(moloch.address, [anyErc20.address], [[0,0,100]], neaMinion.address, [5,0,0], 'test')
         await fastForwardBlocks(1)
         await escrowMinionAsAlice.cancelAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0])
         
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(100)
         expect(await anyErc20.balanceOf(neaMinion.address)).to.equal(0)
@@ -509,7 +562,7 @@ describe.only('Escrow', function () {
         
         await moloch.processProposal(0)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0, 1])
 
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
         expect(await anyErc20.balanceOf(neaMinion.address)).to.equal(100)
@@ -542,7 +595,7 @@ describe.only('Escrow', function () {
 
         await doProposal(true, 0, moloch)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0, 1, 2])
         
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
         expect(await anyErc20.balanceOf(neaMinion.address)).to.equal(100)
@@ -560,7 +613,7 @@ describe.only('Escrow', function () {
 
         await doProposal(false, 0, moloch)
         
-        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0, 1, 2])
         
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(100)
         expect(await anyErc20.balanceOf(neaMinion.address)).to.equal(0)
@@ -578,6 +631,7 @@ describe.only('Escrow', function () {
 
         await fastForwardBlocks(1)
         await escrowMinionAsAlice.cancelAction(0, moloch.address)
+        await escrowMinionAsAlice.withdrawToDestination(0, moloch.address, [0, 1, 2])
         
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(100)
         expect(await anyErc20.balanceOf(neaMinion.address)).to.equal(0)
@@ -586,24 +640,9 @@ describe.only('Escrow', function () {
         expect(await any1155.balanceOf(neaMinion.address, 1)).to.equal(0)
       })
     
-      // Tribute rescue
-
-      it('Moves NFT into to a different destination if rescue is used', async function () {
-        await anyNftAsAlice.approve(escrowMinion.address, 1)
-        await escrowMinionAsAlice.proposeTribute(moloch.address, [anyNft.address], [[1,1,0]], neaMinion.address, [5,0,0], 'test')
-        
-        await doProposal(true, 0, moloch)
-        
-        await escrowMinionAsAlice.rescueTribute(0, moloch.address, vanillaMinion.address, '')
-        
-        await doProposal(true, 1, moloch)
-        
-        await escrowMinionAsAlice.executeAction(1, moloch.address)
-        expect(escrowMinionAsAlice.executeAction(0, moloch.address)).to.be.revertedWith("ERC721: transfer caller is not owner nor approved")
-
-        expect(await anyNft.ownerOf(1)).to.equal(vanillaMinion.address)
-
-      })
+      // TODO
+      
+      // Does not move 721 unless safe
       
       
       
