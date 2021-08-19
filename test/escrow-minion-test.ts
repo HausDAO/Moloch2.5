@@ -644,6 +644,7 @@ describe.only('Escrow', function () {
       
       // Does not move 721 unless safe
       
+      // Check invalid type int
       
       
     })
