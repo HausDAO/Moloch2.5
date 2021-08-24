@@ -1,82 +1,10 @@
 // Based on https://github.com/HausDAO/MinionSummoner/blob/main/MinionFactory.sol
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.7.5;
-
-/**
- * @dev Contract module that helps prevent reentrant calls to a function.
- *
- * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
- * available, which can be applied to functions to make sure there are no nested
- * (reentrant) calls to them.
- *
- * Note that because there is a single `nonReentrant` guard, functions marked as
- * `nonReentrant` may not call one another. This can be worked around by making
- * those functions `private`, and then adding `external` `nonReentrant` entry
- * points to them.
- *
- * TIP: If you would like to learn more about reentrancy and alternative ways
- * to protect against it, check out our blog post
- * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
- */
-abstract contract ReentrancyGuard {
-    // Booleans are more expensive than uint256 or any type that takes up a full
-    // word because each write operation emits an extra SLOAD to first read the
-    // slot's contents, replace the bits taken up by the boolean, and then write
-    // back. This is the compiler's defense against contract upgrades and
-    // pointer aliasing, and it cannot be disabled.
-
-    // The values being non-zero value makes deployment a bit more expensive,
-    // but in exchange the refund on every call to nonReentrant will be lower in
-    // amount. Since refunds are capped to a percentage of the total
-    // transaction's gas, it is best to keep them low in cases like this one, to
-    // increase the likelihood of the full refund coming into effect.
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
-
-    uint256 private _status;
-
-    constructor () internal {
-        _status = _NOT_ENTERED;
-    }
-
-    /**
-     * @dev Prevents a contract from calling itself, directly or indirectly.
-     * Calling a `nonReentrant` function from another `nonReentrant`
-     * function is not supported. It is possible to prevent this from happening
-     * by making the `nonReentrant` function external, and make it call a
-     * `private` function that does the actual work.
-     */
-    modifier nonReentrant() {
-        // On the first call to nonReentrant, _notEntered will be true
-        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
-
-        // Any calls to nonReentrant after this point will fail
-        _status = _ENTERED;
-
-        _;
-
-        // By storing the original value once again, a refund is triggered (see
-        // https://eips.ethereum.org/EIPS/eip-2200)
-        _status = _NOT_ENTERED;
-    }
-}
-
-
-interface IERC20 {
-    // brief interface for moloch erc20 token txs
-    function balanceOf(address who) external view returns (uint256);
-
-    function transfer(address to, uint256 value) external returns (bool);
-
-    function transferFrom(
-        address from,
-        address to,
-        uint256 value
-    ) external returns (bool);
-
-    function approve(address spender, uint256 amount) external returns (bool);
-}
 
 interface IERC721 {
     // brief interface for minion erc721 token txs
@@ -107,7 +35,7 @@ interface IERC721Receiver {
     ) external returns (bytes4);
 }
 
-interface IERC1155Receiver {
+interface IERC1155PartialReceiver {
     function onERC1155Received(
         address operator,
         address from,
@@ -116,14 +44,7 @@ interface IERC1155Receiver {
         bytes calldata data
     ) external returns (bytes4);
 
-    // TODO batch receive not implemented in tribute yet
-    // function onERC1155BatchReceived(
-    //     address operator,
-    //     address from,
-    //     uint256[] calldata ids,
-    //     uint256[] calldata values,
-    //     bytes calldata data
-    // ) external returns (bytes4);
+    // ERC1155 batch receive not implemented in this escrow contract
 }
 
 interface IMOLOCH {
@@ -171,9 +92,14 @@ interface IMOLOCH {
     function withdrawBalance(address token, uint256 amount) external;
 }
 
-contract EscrowMinion is IERC721Receiver, ReentrancyGuard{
-    mapping(address => mapping(uint256 => TributeEscrowAction)) public actions; // proposalId => Action
-    
+contract EscrowMinion is
+    IERC721Receiver,
+    ReentrancyGuard,
+    IERC1155PartialReceiver
+{
+    using Address for address;
+    using SafeERC20 for IERC20;
+
     uint256 constant MAX_LENGTH = 10;
 
     enum TributeType {
@@ -182,20 +108,54 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard{
         ERC1155
     }
 
-    struct TributeEscrowAction {
-        address[] tokenAddresses;
-        uint256[3][] typesTokenIdsAmounts;
-        address vaultAddress; // todo multiple vault destinations?
-        address proposer;
-        address molochAddress;
-        uint256 proposalId;
+    // Track the balance and withdrawl state for each token
+    struct EscrowBalance {
+        uint256[3] typesTokenIdsAmounts;
+        address tokenAddress;
         bool executed;
     }
 
-    event ProposeAction(uint256 proposalId, address proposer, address moloch, address[] tokens, uint256[MAX_LENGTH] types, uint256[MAX_LENGTH] tokenIds, uint256[MAX_LENGTH] amounts, address destinationVault);
+    // Store destination vault and proposer for each proposal
+    struct TributeEscrowAction {
+        address vaultAddress;
+        address proposer;
+    }
+
+    mapping(address => mapping(uint256 => TributeEscrowAction)) public actions; // moloch => proposalId => Action
+    mapping(address => mapping(uint256 => mapping(uint256 => EscrowBalance))) // moloch => proposal => token index => balance
+        public escrowBalances;
+
+    event ProposeAction(
+        uint256 proposalId,
+        address proposer,
+        address moloch,
+        address[] tokens,
+        uint256[MAX_LENGTH] types,
+        uint256[MAX_LENGTH] tokenIds,
+        uint256[MAX_LENGTH] amounts,
+        address destinationVault
+    );
     event ExecuteAction(uint256 proposalId, address executor, address moloch);
     event ActionCanceled(uint256 proposalId, address moloch);
 
+    // Private tracking for destinations to ensure escrow can't get stuck
+    mapping(TributeType => uint256) private _destinationChecked;
+    uint256 private constant _NOT_CHECKED = 1;
+    uint256 private constant _CHECKED = 2;
+
+    constructor() {
+        // Follow a similar pattern to reentency guard from OZ
+        _destinationChecked[TributeType.ERC721] = _NOT_CHECKED;
+        _destinationChecked[TributeType.ERC1155] = _NOT_CHECKED;
+    }
+
+    modifier safeDestination() {
+        _;
+        _destinationChecked[TributeType.ERC721] = _NOT_CHECKED;
+        _destinationChecked[TributeType.ERC1155] = _NOT_CHECKED;
+    }
+
+    // Safely receive ERC721s
     function onERC721Received(
         address,
         address,
@@ -207,73 +167,221 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard{
                 keccak256("onERC721Received(address,address,uint256,bytes)")
             );
     }
-    
-    // TODO onERC1155Received
 
-    function doTransfers(
-        TributeEscrowAction memory action,
+    // Safely receive ERC1155s
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata
+    ) external pure override returns (bytes4) {
+        return
+            bytes4(
+                keccak256(
+                    "onERC1155Received(address,address,uint256,uint256,bytes)"
+                )
+            );
+    }
+
+    /**
+     * @dev Internal function to invoke {IERC721Receiver-onERC721Received} on a target address.
+     * The call is not executed if the target address is not a contract.
+     *
+     * @param operator address representing the entity calling the function
+     * @param from address representing the previous owner of the given token ID
+     * @param to target address that will receive the tokens
+     * @param tokenId uint256 ID of the token to be transferred
+     * @param _data bytes optional data to send along with the call
+     * @return bool whether the call correctly returned the expected magic value
+     */
+    function _checkOnERC721Received(
+        address operator,
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes memory _data
+    ) private returns (bool) {
+        if (!to.isContract()) {
+            return true;
+        }
+        bytes memory returndata = to.functionCall(
+            abi.encodeWithSelector(
+                IERC721Receiver(to).onERC721Received.selector,
+                operator,
+                from,
+                tokenId,
+                _data
+            ),
+            "ERC721: transfer to non ERC721Receiver implementer"
+        );
+        bytes4 retval = abi.decode(returndata, (bytes4));
+        return (retval == IERC721Receiver(to).onERC721Received.selector);
+    }
+
+    function _checkOnERC1155Received(
+        address operator,
+        address from,
+        address to,
+        uint256 id,
+        uint256 amount,
+        bytes memory data
+    ) private returns (bool) {
+        if (!to.isContract()) {
+            return true;
+        }
+        bytes memory returndata = to.functionCall(
+            abi.encodeWithSelector(
+                IERC1155PartialReceiver(to).onERC1155Received.selector,
+                operator,
+                from,
+                id,
+                amount,
+                data
+            ),
+            "ERC1155: transfer to non ERC1155Receiver implementer"
+        );
+        bytes4 retval = abi.decode(returndata, (bytes4));
+        return (retval ==
+            IERC1155PartialReceiver(to).onERC1155Received.selector);
+    }
+
+    function checkERC721Recipients(address vaultAddress) internal {
+        require(
+            _checkOnERC721Received(
+                address(this),
+                address(this),
+                vaultAddress,
+                0,
+                ""
+            ),
+            "!ERC721"
+        );
+        require(
+            _checkOnERC721Received(
+                address(this),
+                address(this),
+                msg.sender,
+                0,
+                ""
+            ),
+            "!ERC721"
+        );
+        _destinationChecked[TributeType.ERC721] = _CHECKED;
+    }
+
+    function checkERC1155Recipients(address vaultAddress) internal {
+        require(
+            _checkOnERC1155Received(
+                address(this),
+                address(this),
+                vaultAddress,
+                0,
+                0,
+                ""
+            ),
+            "!ERC1155"
+        );
+        require(
+            _checkOnERC1155Received(
+                address(this),
+                address(this),
+                msg.sender,
+                0,
+                0,
+                ""
+            ),
+            "!ERC1155"
+        );
+        _destinationChecked[TributeType.ERC1155] = _CHECKED;
+    }
+
+    function doTransfer(
+        address tokenAddress,
+        uint256[3] memory typesTokenIdsAmounts,
         address from,
         address to
     ) internal {
-        for (uint256 index = 0; index < action.typesTokenIdsAmounts.length; index++) {
-            if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC721)) {
-                IERC721 erc721 = IERC721(action.tokenAddresses[index]);
-                erc721.safeTransferFrom(from, to, action.typesTokenIdsAmounts[index][1]);
-                // erc721.safeTransferFrom(from, to, 1);
-            } else if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC20)) {
-                IERC20 erc20 = IERC20(action.tokenAddresses[index]);
-                if (from == address(this)) {
-                    erc20.transfer(to, action.typesTokenIdsAmounts[index][2]);
-                } else {
-                    erc20.transferFrom(from, to, action.typesTokenIdsAmounts[index][2]);
-                }
-            } else if (action.typesTokenIdsAmounts[index][0] == uint256(TributeType.ERC1155)) {
-                IERC1155 erc1155 = IERC1155(action.tokenAddresses[index]);
-                erc1155.safeTransferFrom(
-                    from,
-                    to,
-                    action.typesTokenIdsAmounts[index][1],
-                    action.typesTokenIdsAmounts[index][2],
-                    ""
-                );
+        if (typesTokenIdsAmounts[0] == uint256(TributeType.ERC721)) {
+            IERC721 erc721 = IERC721(tokenAddress);
+            erc721.safeTransferFrom(from, to, typesTokenIdsAmounts[1]);
+        } else if (typesTokenIdsAmounts[0] == uint256(TributeType.ERC20)) {
+            require(typesTokenIdsAmounts[2] != 0, "!amount");
+            IERC20 erc20 = IERC20(tokenAddress);
+            if (from == address(this)) {
+                erc20.safeTransfer(to, typesTokenIdsAmounts[2]);
+            } else {
+                erc20.safeTransferFrom(from, to, typesTokenIdsAmounts[2]);
             }
+        } else if (typesTokenIdsAmounts[0] == uint256(TributeType.ERC1155)) {
+            require(typesTokenIdsAmounts[2] != 0, "!amount");
+            IERC1155 erc1155 = IERC1155(tokenAddress);
+            erc1155.safeTransferFrom(
+                from,
+                to,
+                typesTokenIdsAmounts[1],
+                typesTokenIdsAmounts[2],
+                ""
+            );
+        } else {
+            revert("Invalid type");
         }
     }
 
-    function saveAction(
+    function processActionProposal(
         address molochAddress,
-        // add array of erc1155, 721 or 20
-        address[] calldata tokenAddresses,
-        uint256[3][] calldata typesTokenIdsAmounts,
-        // uint256[] calldata amounts,
+        address[] memory tokenAddresses,
+        uint256[3][] memory typesTokenIdsAmounts,
         address vaultAddress,
         uint256 proposalId
-    ) private returns (TributeEscrowAction memory) {
-        TributeEscrowAction memory action = TributeEscrowAction({
-            tokenAddresses: tokenAddresses,
-            typesTokenIdsAmounts: typesTokenIdsAmounts,
-            vaultAddress: vaultAddress,
-            proposer: msg.sender,
-            executed: false,
-            molochAddress: molochAddress,
-            proposalId: proposalId
-        });
-
-        actions[molochAddress][proposalId] = action;
-        return action;
-    }
-    
-    function emitProposalEvent(TributeEscrowAction memory action) internal {
+    ) private {
         uint256[MAX_LENGTH] memory types;
         uint256[MAX_LENGTH] memory tokenIds;
         uint256[MAX_LENGTH] memory amounts;
-        
-        for (uint256 index = 0; index < action.typesTokenIdsAmounts.length; index++) {
-            types[index] =action.typesTokenIdsAmounts[index][0];
-            tokenIds[index] = action.typesTokenIdsAmounts[index][1];
-            amounts[index] = action.typesTokenIdsAmounts[index][2];
+
+        // Store proposal metadata
+        actions[molochAddress][proposalId] = TributeEscrowAction({
+            vaultAddress: vaultAddress,
+            proposer: msg.sender
+        });
+        for (uint256 index = 0; index < tokenAddresses.length; index++) {
+            // Store withdrawable balances
+            escrowBalances[molochAddress][proposalId][
+                index
+            ] = EscrowBalance({
+                typesTokenIdsAmounts: typesTokenIdsAmounts[index],
+                tokenAddress: tokenAddresses[index],
+                executed: false
+            });
+
+            if (_destinationChecked[TributeType.ERC721] == _NOT_CHECKED)
+                checkERC721Recipients(vaultAddress);
+            if (_destinationChecked[TributeType.ERC1155] == _NOT_CHECKED)
+                checkERC1155Recipients(vaultAddress);
+
+            // Move tokens into escrow
+            doTransfer(
+                tokenAddresses[index],
+                typesTokenIdsAmounts[index],
+                msg.sender,
+                address(this)
+            );
+
+            // Store in memory so they can be emitted in an event
+            types[index] = typesTokenIdsAmounts[index][0];
+            tokenIds[index] = typesTokenIdsAmounts[index][1];
+            amounts[index] = typesTokenIdsAmounts[index][2];
         }
-        emit ProposeAction(action.proposalId, msg.sender, action.molochAddress, action.tokenAddresses, types, tokenIds, amounts, action.vaultAddress);
+        emit ProposeAction(
+            proposalId,
+            msg.sender,
+            molochAddress,
+            tokenAddresses,
+            types,
+            tokenIds,
+            amounts,
+            vaultAddress
+        );
     }
 
     //  -- Proposal Functions --
@@ -289,22 +397,23 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard{
      */
     function proposeTribute(
         address molochAddress,
-        // add array of erc1155, 721 or 20
         address[] calldata tokenAddresses,
         uint256[3][] calldata typesTokenIdsAmounts,
         address vaultAddress,
         uint256[3] calldata requestSharesLootFunds, // also request loot or treasury funds
         string calldata details
-    ) external nonReentrant returns (uint256) {
+    ) external nonReentrant safeDestination returns (uint256) {
         IMOLOCH thisMoloch = IMOLOCH(molochAddress);
         address thisMolochDepositToken = thisMoloch.depositToken();
 
         require(vaultAddress != address(0), "invalid vaultAddress");
 
-        // require length check
-        require(typesTokenIdsAmounts.length == tokenAddresses.length, "!same-length");
-        
-        require(typesTokenIdsAmounts.length <= 10, "!max-length");
+        require(
+            typesTokenIdsAmounts.length == tokenAddresses.length,
+            "!same-length"
+        );
+
+        require(typesTokenIdsAmounts.length <= MAX_LENGTH, "!max-length");
 
         uint256 proposalId = thisMoloch.submitProposal(
             msg.sender,
@@ -317,63 +426,81 @@ contract EscrowMinion is IERC721Receiver, ReentrancyGuard{
             details
         );
 
-        TributeEscrowAction memory action = saveAction(
+        processActionProposal(
             molochAddress,
             tokenAddresses,
             typesTokenIdsAmounts,
             vaultAddress,
             proposalId
         );
-        
-        emitProposalEvent(action);
-
-        doTransfers(action, msg.sender, address(this));
 
         return proposalId;
     }
 
-    function executeAction(uint256 proposalId, address molochAddress) external nonReentrant {
-        IMOLOCH thisMoloch = IMOLOCH(molochAddress);
+    function processWithdrawls(
+        address molochAddress,
+        uint256[] calldata tokenIndices, // only withdraw indices in this list
+        address destination,
+        uint256 proposalId
+    ) private {
+        for (uint256 index = 0; index < tokenIndices.length; index++) {
+            // Retrieve withdrawable balances
+            EscrowBalance storage escrowBalance = escrowBalances[molochAddress][
+                proposalId
+            ][tokenIndices[index]];
+            require(!escrowBalance.executed, "executed");
+            require(escrowBalance.tokenAddress != address(0), "!token");
+            escrowBalance.executed = true;
 
-        TributeEscrowAction memory action = actions[molochAddress][proposalId];
+            doTransfer(
+                escrowBalance.tokenAddress,
+                escrowBalance.typesTokenIdsAmounts,
+                address(this),
+                destination
+            );
+        }
+    }
+
+    function withdrawToDestination(
+        uint256 proposalId,
+        address molochAddress,
+        uint256[] calldata tokenIndices
+    ) external nonReentrant {
+        IMOLOCH thisMoloch = IMOLOCH(molochAddress);
         bool[6] memory flags = thisMoloch.getProposalFlags(proposalId);
 
-        require(action.vaultAddress != address(0), "invalid proposalId");
-        // TODO check for IERC721Receiver interface
+        require(flags[1] || flags[3], "proposal not processed and not cancelled");
 
-        require(!action.executed, "action executed");
-
-        require(flags[1], "proposal not processed");
-
-        require(!flags[3], "proposal cancelled");
-
+        TributeEscrowAction memory action = actions[molochAddress][proposalId];
         address destination;
         // if passed, send NFT to vault
         if (flags[2]) {
             destination = action.vaultAddress;
+            // if failed or cancelled, send back to proposer
         } else {
             destination = action.proposer;
         }
 
-        actions[molochAddress][proposalId].executed = true;
-
-        doTransfers(action, address(this), destination);
+        processWithdrawls(
+            molochAddress,
+            tokenIndices,
+            destination,
+            proposalId
+        );
 
         emit ExecuteAction(proposalId, msg.sender, molochAddress);
     }
 
-    function cancelAction(uint256 _proposalId, address molochAddress) external nonReentrant {
+    function cancelAction(uint256 _proposalId, address molochAddress)
+        external
+        nonReentrant
+    {
         IMOLOCH thisMoloch = IMOLOCH(molochAddress);
         TributeEscrowAction memory action = actions[molochAddress][_proposalId];
 
-        require(!action.executed, "action executed");
-
         require(msg.sender == action.proposer, "not proposer");
+        // todo any safety checks?
         thisMoloch.cancelProposal(_proposalId);
-
-        delete actions[molochAddress][_proposalId];
-
-        doTransfers(action, address(this), msg.sender);
 
         emit ActionCanceled(_proposalId, molochAddress);
     }
