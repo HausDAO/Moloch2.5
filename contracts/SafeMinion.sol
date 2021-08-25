@@ -144,6 +144,7 @@ contract SafeMinion is IERC721Receiver, IERC1155Receiver, IERC1271, Enum {
     string private constant ERROR_TX_FAIL = "Minion::token transfer failed";
     string private constant ERROR_NOT_PROPOSER = "Minion::not proposer";
     string private constant ERROR_THIS_ONLY = "Minion::can only be called by this";
+    string private constant ERROR_EXECUTOR_ONLY = "Minion::can only be called by executor";
     string private constant ERROR_MEMBER_ONLY = "Minion::not member";
     string private constant ERROR_MEMBER_OR_MODULE_ONLY = "Minion::not member or module";
     string private constant ERROR_NOT_SPONSORED = "Minion::proposal not sponsored";
@@ -199,6 +200,11 @@ contract SafeMinion is IERC721Receiver, IERC1155Receiver, IERC1271, Enum {
 
     modifier thisOnly() {
         require(msg.sender == address(this), ERROR_THIS_ONLY);
+        _;
+    }
+
+    modifier executorOnly() {
+        require(msg.sender == address(executor), ERROR_THIS_ONLY);
         _;
     }
 
@@ -277,7 +283,7 @@ contract SafeMinion is IERC721Receiver, IERC1155Receiver, IERC1271, Enum {
         bytes32 permissionHash,
         bytes32 signatureHash,
         bytes4 magicValue
-    ) external thisOnly {
+    ) external executorOnly {
         signatures[permissionHash] = DAOSignature({
             signatureHash: signatureHash,
             magicValue: magicValue
@@ -327,7 +333,7 @@ contract SafeMinion is IERC721Receiver, IERC1155Receiver, IERC1271, Enum {
         return true;
     }
     
-    function deleteAction(uint256 _proposalId) external thisOnly returns (bool) {
+    function deleteAction(uint256 _proposalId) external executorOnly returns (bool) {
         //TODO: can delete own proposal, how to check?
         // check action exists
         require(actions[_proposalId].proposer != address(0), ERROR_NO_ACTION);
@@ -412,7 +418,7 @@ contract SafeMinion is IERC721Receiver, IERC1155Receiver, IERC1271, Enum {
     }
 
     // -- Admin Functions --
-    function changeOwner(address _moloch) external thisOnly returns (bool) {
+    function changeOwner(address _moloch) external executorOnly returns (bool) {
         // TODO: withdraw any funds from dao first? may need to verify this on the front end
         moloch = IMOLOCH(_moloch);
         molochDepositToken = moloch.depositToken();
@@ -423,7 +429,7 @@ contract SafeMinion is IERC721Receiver, IERC1155Receiver, IERC1271, Enum {
     }
 
 
-    function setModule(address _module) external thisOnly returns (bool) {
+    function setModule(address _module) external executorOnly returns (bool) {
         module = _module;
         emit SetModule(_module);
         return true;

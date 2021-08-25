@@ -115,6 +115,34 @@ describe.only('Safe Minion Functionality', function () {
       expect((await moloch.members(aliceAddress)).shares).to.equal(50)
       expect((await moloch.members(deployerAddress)).shares).to.equal(100)
     })
+    describe("Signatures", function() {
+      it('Allows a member to submit a signature proposal and mark it valid through voting', async function () {
+        const sign_action_1 = safeMinion.interface.encodeFunctionData("sign", [
+          arbitraryMsgHash,
+          arbitrarySignatureHash,
+          magicValue
+        ]);
+        await safeMinion.proposeAction(
+          [safeMinion.address],
+          [0],
+          [sign_action_1],
+          anyErc20.address,
+          0,
+          "test",
+          false
+        )
+        
+        await doProposal(true, 0, moloch)
+        
+        await safeMinion.executeAction(0, [safeMinion.address], [0], [sign_action_1])
+        
+        expect(await safeMinion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.equal(magicValue)
+        
+      })
+
+
+    })
+
     describe("Safe withdraw from Moloch", function() {
       it("Enables a Minion to withdraw Moloch funds into a safe", async function() {
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
