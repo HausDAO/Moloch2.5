@@ -8,13 +8,14 @@ import { AnyErc20 } from '../src/types/AnyErc20'
 import { Moloch } from '../src/types/Moloch'
 import { EscrowMinion } from '../src/types/EscrowMinion'
 import { NeapolitanMinion } from '../src/types/NeapolitanMinion'
+import { DaoConditionalHelper } from "../src/types/DaoConditionalHelper";
 import { VanillaMinion } from '../src/types/VanillaMinion'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { doProposal, fastForwardBlocks } from './util'
 
 use(solidity)
 
-describe.only('Escrow', function () {
+describe('Escrow', function () {
   let Moloch: ContractFactory
   let moloch: Moloch
   
@@ -431,7 +432,7 @@ describe.only('Escrow', function () {
         expect(await any1155.balanceOf(escrowMinion.address, 1)).to.equal(0)
       })
 
-      it.only('Fails to move 721s into escrow if destination does not support them', async function () {
+      it('Fails to move 721s into escrow if destination does not support them', async function () {
         await anyNft.setApprovalForAll(escrowMinion.address, true)
         expect(escrowMinionAsAlice.proposeTribute(moloch.address, [anyNft.address], [[1,1,0]], anyNft.address, [5,0,0], 'test')).to.be.revertedWith('ERC721: transfer to non ERC721Receiver implementer')
         

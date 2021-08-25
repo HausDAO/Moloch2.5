@@ -6,6 +6,23 @@ pragma abicoder v2;
 
 // import "hardhat/console.sol";
 
+contract Enum {
+    enum Operation {
+        Call, DelegateCall
+    }
+}
+
+interface IExecutor {
+    /// @dev Allows a Module to execute a transaction.
+    /// @param to Destination address of module transaction.
+    /// @param value Ether value of module transaction.
+    /// @param data Data payload of module transaction.
+    /// @param operation Operation type of module transaction.
+    function execTransactionFromModule(address to, uint256 value, bytes calldata data, Enum.Operation operation)
+        external
+        returns (bool success);
+}
+
 interface IERC20 { // brief interface for moloch erc20 token txs
     function balanceOf(address who) external view returns (uint256);
     
@@ -104,14 +121,15 @@ interface IMOLOCH { // brief interface for moloch dao v2
     function proposals(uint256 proposalId) external returns (address, address, address, uint256, uint256, uint256, address, uint256, address, uint256, uint256, uint256);
 }
 
-contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
+contract SafeMinion is IERC721Receiver, IERC1155Receiver, IERC1271, Enum {
     IMOLOCH public moloch;
+    IExecutor public executor;
     address public molochDepositToken;
     address public module;
     uint256 public minQuorum;
     bool private initialized; // internally tracks deployment under eip-1167 proxy pattern
     mapping(uint256 => Action) public actions; // proposalId => Action
-
+    
     // events consts
 
     string private constant ERROR_INIT = "Minion::initialized";
@@ -189,11 +207,13 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         _;
     }
 
-    function init(address _moloch, uint256 _minQuorum) external {
+    function init(address _moloch, address _executor, uint256 _minQuorum) external {
         require(!initialized, ERROR_INIT); 
         // min quorum must be between 0% and 100%, if 0 early execution is disabled
         require(_minQuorum >= 0 && _minQuorum <= 100, ERROR_MIN_QUORUM_BOUNDS);
         moloch = IMOLOCH(_moloch);
+        executor = IExecutor(_executor);
+
         minQuorum = _minQuorum;
         molochDepositToken = moloch.depositToken();
         // verify that moloch address has a deposit token and it is not zero
@@ -218,6 +238,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
     //  -- Moloch Withdraw Functions --
     function doWithdraw(address token, uint256 amount) public memberOnly {
         moloch.withdrawBalance(token, amount); // withdraw funds from parent moloch
+        IERC20(token).transfer(address(executor), amount);
         emit DoWithdraw(token, amount);
     }
     
@@ -301,8 +322,7 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         bytes calldata actionData
     ) external noMemberMoloch returns (bool) {
         require(address(this).balance >= actionValue, ERROR_FUNDS);
-        (bool success, ) = actionTo.call{value: actionValue}(actionData);
-        require(success, ERROR_CALL_FAIL);
+        require(executor.execTransactionFromModule(actionTo, actionValue, actionData, Operation.Call), ERROR_CALL_FAIL);
         emit ExecuteEscapeHatch(actionTo, actionValue, actionData, msg.sender);
         return true;
     }
@@ -373,9 +393,8 @@ contract NeapolitanMinion is IERC721Receiver, IERC1155Receiver, IERC1271 {
         
         // execute calls
         for (uint256 i = 0; i < actionTos.length; ++i) {
-            require(address(this).balance >= actionValues[i], ERROR_FUNDS);
-            (bool success, ) = actionTos[i].call{value: actionValues[i]}(actionDatas[i]);
-            require(success, ERROR_CALL_FAIL);
+            require(address(executor).balance >= actionValues[i], ERROR_FUNDS);
+            require(executor.execTransactionFromModule(actionTos[i], actionValues[i], actionDatas[i], Operation.Call), ERROR_CALL_FAIL);
             emit ExecuteAction(id, proposalId, i, actionTos[i], actionValues[i], actionDatas[i], msg.sender);
         }
         delete actions[proposalId];
@@ -468,11 +487,11 @@ contract CloneFactory {
     }
 }
 
-contract NeapolitanMinionFactory is CloneFactory {
+contract SafeMinionFactory is CloneFactory {
     address payable immutable public template; // fixed template for minion using eip-1167 proxy pattern
     address[] public minionList; 
     mapping (address => AMinion) public minions;
-    string public constant minionType = "Neapolitan minion";
+    string public constant minionType = "Safe minion";
     
     event SummonMinion(address indexed minion, address indexed moloch, string details, string minionType, uint256 minQuorum);
     
@@ -481,18 +500,19 @@ contract NeapolitanMinionFactory is CloneFactory {
         string details; 
     }
     
-    constructor(address payable _template, address _molochTemplate) {
+    constructor(address payable _template, address _molochTemplate, address _executorTemplate) {
         template = _template;
-        NeapolitanMinion minion = NeapolitanMinion(_template); 
-        minion.init(_molochTemplate,0);
+        SafeMinion minion = SafeMinion(_template); 
+        minion.init(_molochTemplate,_executorTemplate,0);
     }
     
     function summonMinion(
         address moloch, 
+        address executor, 
         string memory details, 
         uint256 minQuorum) external returns (address) {
-        NeapolitanMinion minion = NeapolitanMinion(createClone(template));
-        minion.init(moloch, minQuorum);
+        SafeMinion minion = SafeMinion(createClone(template));
+        minion.init(moloch, executor, minQuorum);
         
         minions[address(minion)] = AMinion(moloch, details);
         minionList.push(address(minion));
@@ -500,27 +520,5 @@ contract NeapolitanMinionFactory is CloneFactory {
         
         return(address(minion));
         
-    }
-}
-
-contract WhitelistModuleHelper {
-
-
-    NeapolitanMinion minion;
-    mapping (address => bool) public whitelist;
-    constructor(address[] memory _whitelist, address payable _minion) {
-        for (uint256 i = 0; i < _whitelist.length; i++){
-            whitelist[_whitelist[i]] = true;
-        }
-        minion = NeapolitanMinion(_minion);
-    }
-
-    function executeAction(
-        uint256 _proposalId,
-        address[] calldata _actionTos,
-        uint256[] calldata _actionValues,
-        bytes[] calldata _actionDatas) public {
-        require(whitelist[msg.sender], "Whitelist Module::Not whitelisted");
-        minion.executeAction(_proposalId, _actionTos, _actionValues, _actionDatas);
     }
 }
