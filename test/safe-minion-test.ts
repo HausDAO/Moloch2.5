@@ -115,6 +115,43 @@ describe.only('Safe Minion Functionality', function () {
       expect((await moloch.members(aliceAddress)).shares).to.equal(50)
       expect((await moloch.members(deployerAddress)).shares).to.equal(100)
     })
+    describe("Safe withdraw from Moloch", function() {
+      it("Enables a Minion to withdraw Moloch funds into a safe", async function() {
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(500)
+        const action_1 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          10,
+        ]);
+
+        await safeMinion.proposeAction(
+          [anyErc20.address],
+          [0],
+          [action_1],
+          anyErc20.address,
+          100,
+          "test",
+          false
+        );
+
+        await doProposal(true, 0, moloch)
+        
+        await safeMinion.doWithdraw(anyErc20.address, 100)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(600)
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
+        
+        await safeMinion.executeAction(
+          0,
+          [anyErc20.address],
+          [0],
+          [action_1]
+        )
+
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(590)
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(10)
+        
+      })
+    })
     describe("Multi-call", function () {
       it("Enables 2 actions to be associated with one proposal", async function () {
         const action_1 = anyErc20.interface.encodeFunctionData("transfer", [
