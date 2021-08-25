@@ -306,7 +306,7 @@ contract SafeMinion is IERC721Receiver, IERC1155Receiver, IERC1271, Enum {
         require(actionTos.length == actionDatas.length, ERROR_LENGTH_MISMATCH);
 
         uint256 proposalId = moloch.submitProposal(
-            address(this),
+            address(executor),
             0,
             0,
             0,
@@ -322,12 +322,13 @@ contract SafeMinion is IERC721Receiver, IERC1155Receiver, IERC1271, Enum {
     }
 
     // if the parent moloch has no share holding members this can be used to release funds
+    // TODO this is risky with a SAFE - probably not needed
     function escapeHatch(
         address actionTo,
         uint256 actionValue,
         bytes calldata actionData
     ) external noMemberMoloch returns (bool) {
-        require(address(this).balance >= actionValue, ERROR_FUNDS);
+        require(address(executor).balance >= actionValue, ERROR_FUNDS);
         require(executor.execTransactionFromModule(actionTo, actionValue, actionData, Operation.Call), ERROR_CALL_FAIL);
         emit ExecuteEscapeHatch(actionTo, actionValue, actionData, msg.sender);
         return true;
