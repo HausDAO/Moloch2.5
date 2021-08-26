@@ -168,6 +168,22 @@ describe.only('Safe Minion Functionality', function () {
     //   })
 
     // })
+    
+    describe("Safe management", function() {
+      it("Enables a minion to add another module", async function() {
+        expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(false)
+        const action_1 = gnosisSafe.interface.encodeFunctionData("enableModule", [
+          deployerAddress,
+        ]);
+        const multi_action = encodeMultiAction(multisend, [action_1], [gnosisSafe.address])
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
+        await doProposal(true, 0, moloch)
+
+        await safeMinion.executeAction(0, multi_action)
+        expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(true)
+
+      })
+    })
 
     describe("Safe withdraw from Moloch", function() {
       it("Enables a Minion to withdraw Moloch funds into a safe", async function() {
@@ -188,10 +204,10 @@ describe.only('Safe Minion Functionality', function () {
         expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(600)
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
 
-        // await safeMinion.executeAction(0, multi_action)
+        await safeMinion.executeAction(0, multi_action)
 
-        // expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(590)
-        // expect(await anyErc20.balanceOf(aliceAddress)).to.equal(10)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(590)
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(10)
 
       })
     })
