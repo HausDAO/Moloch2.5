@@ -268,6 +268,25 @@ describe.only('Safe Minion Functionality', function () {
         expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(470)
       })
 
+      it('Enables a proposal to delete a previous action', async function () {
+        const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
+        const delete_action_1 = safeMinion.interface.encodeFunctionData("deleteAction", [0])
+
+        const multi_action_1 = encodeMultiAction(multisend, [action_1], [anyErc20.address])
+        const delete_multi_action_1 = encodeMultiAction(multisend, [delete_action_1], [safeMinion.address])
+
+        await safeMinion.proposeAction(multi_action_1, anyErc20.address, 0, 'test', false)
+
+        await doProposal(true, 0, moloch)
+
+        await safeMinion.proposeAction(delete_multi_action_1, anyErc20.address, 0, 'test', false)
+
+        await doProposal(true, 1, moloch)
+
+        await safeMinion.executeAction(1, delete_multi_action_1)
+        expect(safeMinion.executeAction(0, multi_action_1)).to.be.revertedWith('Minion::action was deleted')
+      })
+
       it('Enables actions to be executed early when minQuorum is met', async function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
