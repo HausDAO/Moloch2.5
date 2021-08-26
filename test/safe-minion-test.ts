@@ -1,16 +1,18 @@
 import { ethers } from 'hardhat'
 import { solidity } from 'ethereum-waffle'
-import { Contract, ContractFactory, BigNumberish } from 'ethers'
+import { Contract, ContractFactory, BigNumberish, Wallet } from 'ethers'
 import { use, expect } from 'chai'
 import { AnyErc20 } from '../src/types/AnyErc20'
 import { Moloch } from '../src/types/Moloch'
 import { DaoConditionalHelper } from '../src/types/DaoConditionalHelper'
 import { SafeMinion } from '../src/types/SafeMinion'
-import { TestExecutor } from '../src/types/TestExecutor'
+// import { TestExecutor } from '../src/types/TestExecutor'
+import { GnosisSafe } from '../src/types/GnosisSafe'
+import { GnosisSafeProxy } from '../src/types/GnosisSafeProxy'
 import { MultiSend } from '../src/types/MultiSend'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { doProposal, encodeMultiAction, fastForwardBlocks } from './util'
-import { encodeMultiSend, MetaTransaction } from '@gnosis.pm/safe-contracts'
+import { encodeMultiSend, executeContractCallWithSigners, MetaTransaction } from '@gnosis.pm/safe-contracts'
 
 use(solidity)
 
@@ -27,7 +29,11 @@ describe.only('Safe Minion Functionality', function () {
   let safeMinion: SafeMinion
 
   let GnosisSafe: ContractFactory
-  let gnosisSafe: TestExecutor
+  let gnosisSafeSingleton: GnosisSafe
+  let gnosisSafe: GnosisSafe
+
+  let GnosisSafeProxy: ContractFactory
+  let gnosisSafeProxy: GnosisSafeProxy
 
   let DaoConditionalHelper: ContractFactory
   let helper: DaoConditionalHelper
@@ -51,6 +57,13 @@ describe.only('Safe Minion Functionality', function () {
   let arbitrarySignatureHash: string
   let arbitraryMsgHash: string
   let magicValue: string
+  
+  let testWallet: Wallet
+  
+  const demoKey = "0xc41d4ecec0049da2bc18ad0538dffedd2af76714a0438229dbd55e1109f0493d"
+  const testWalletAbstract = new ethers.Wallet(demoKey)
+
+  const zeroAddress = "0x0000000000000000000000000000000000000000";
 
   let minQuorum: BigNumberish
 
@@ -59,7 +72,8 @@ describe.only('Safe Minion Functionality', function () {
     DaoConditionalHelper = await ethers.getContractFactory('DaoConditionalHelper')
     SafeMinion = await ethers.getContractFactory('SafeMinion')
     AnyNft = await ethers.getContractFactory('AnyNFT')
-    GnosisSafe = await ethers.getContractFactory('TestExecutor')
+    GnosisSafe = await ethers.getContractFactory('GnosisSafe')
+    GnosisSafeProxy = await ethers.getContractFactory('GnosisSafeProxy')
     MultiSend = await ethers.getContractFactory('MultiSend')
     AnyERC20 = await ethers.getContractFactory('AnyERC20')
     signers = await ethers.getSigners()
@@ -74,6 +88,12 @@ describe.only('Safe Minion Functionality', function () {
     arbitrarySignatureHash = ethers.utils.solidityKeccak256(['bytes'], [arbitarySignature])
     arbitraryMsgHash = await ethers.utils.hashMessage('This does not have to be the same')
     magicValue = '0x1626ba7e'
+    
+    // Deploy gnosis singleton
+    gnosisSafeSingleton = (await GnosisSafe.deploy()) as GnosisSafe
+    multisend = (await MultiSend.deploy()) as MultiSend
+
+    testWallet = await testWalletAbstract.connect(ethers.provider)
   })
 
   describe('Helpers', function () {
@@ -101,16 +121,20 @@ describe.only('Safe Minion Functionality', function () {
       // collect tokens
       await moloch.collectTokens(anyErc20.address)
 
-      gnosisSafe = (await GnosisSafe.deploy()) as TestExecutor
-      multisend = (await MultiSend.deploy()) as MultiSend
+      // gnosisSafe = (await GnosisSafe.deploy()) as TestExecutor
+      const proxy = await GnosisSafeProxy.deploy(gnosisSafeSingleton.address)
+      gnosisSafe = (await GnosisSafe.attach(proxy.address)) as GnosisSafe
+      safeMinion = (await SafeMinion.deploy()) as SafeMinion
+      
+      await gnosisSafe.setup([testWallet.address], 1, zeroAddress, [], zeroAddress, zeroAddress, 0, zeroAddress)
+      await executeContractCallWithSigners(gnosisSafe, gnosisSafe, "enableModule", [safeMinion.address], [testWallet])
 
       await anyErc20.mint(gnosisSafe.address, 500)
 
-      safeMinion = (await SafeMinion.deploy()) as SafeMinion
       minQuorum = 20
       await safeMinion.init(moloch.address, gnosisSafe.address, multisend.address, minQuorum)
 
-      await gnosisSafe.setModule(safeMinion.address)
+      // await gnosisSafe.setModule(safeMinion.address)
     })
 
     it('Sets up the tests', async function () {
@@ -145,44 +169,33 @@ describe.only('Safe Minion Functionality', function () {
 
     // })
 
-    // describe("Safe withdraw from Moloch", function() {
-    //   it("Enables a Minion to withdraw Moloch funds into a safe", async function() {
-    //     expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
-    //     expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(500)
-    //     const action_1 = anyErc20.interface.encodeFunctionData("transfer", [
-    //       aliceAddress,
-    //       10,
-    //     ]);
+    describe("Safe withdraw from Moloch", function() {
+      it("Enables a Minion to withdraw Moloch funds into a safe", async function() {
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(500)
+        const action_1 = anyErc20.interface.encodeFunctionData("transfer", [
+          aliceAddress,
+          10,
+        ]);
 
-    //     await safeMinion.proposeAction(
-    //       [anyErc20.address],
-    //       [0],
-    //       [action_1],
-    //       anyErc20.address,
-    //       100,
-    //       "test",
-    //       false
-    //     );
+        const multi_action = encodeMultiAction(multisend, [action_1], [anyErc20.address])
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 100, 'test', false)
 
-    //     await doProposal(true, 0, moloch)
 
-    //     await safeMinion.doWithdraw(anyErc20.address, 100)
-    //     expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(600)
-    //     expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
+        await doProposal(true, 0, moloch)
 
-    //     await safeMinion.executeAction(
-    //       0,
-    //       [anyErc20.address],
-    //       [0],
-    //       [action_1]
-    //     )
+        await safeMinion.doWithdraw(anyErc20.address, 100)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(600)
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
 
-    //     expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(590)
-    //     expect(await anyErc20.balanceOf(aliceAddress)).to.equal(10)
+        // await safeMinion.executeAction(0, multi_action)
 
-    //   })
-    // })
-    describe('Multi-call', function () {
+        // expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(590)
+        // expect(await anyErc20.balanceOf(aliceAddress)).to.equal(10)
+
+      })
+    })
+    describe('Multisend', function () {
       it('Enables 2 actions to be associated with one proposal', async function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])

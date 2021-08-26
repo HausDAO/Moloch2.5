@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-import "hardhat/console.sol";
 
 pragma solidity >=0.8.0;
 
@@ -27,7 +26,6 @@ contract TestExecutor {
         external
         returns (bool success)
     {
-        console.log('DEBUG ETFM %s', operation);
         require(msg.sender == module, "Not authorized");
         if (operation == 1)
             (success,) = to.delegatecall(data);
