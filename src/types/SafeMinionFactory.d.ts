@@ -25,7 +25,7 @@ interface SafeMinionFactoryInterface extends ethers.utils.Interface {
     "minionList(uint256)": FunctionFragment;
     "minionType()": FunctionFragment;
     "minions(address)": FunctionFragment;
-    "summonMinion(address,address,string,uint256)": FunctionFragment;
+    "summonMinion(address,address,address,string,uint256)": FunctionFragment;
     "template()": FunctionFragment;
   };
 
@@ -40,7 +40,7 @@ interface SafeMinionFactoryInterface extends ethers.utils.Interface {
   encodeFunctionData(functionFragment: "minions", values: [string]): string;
   encodeFunctionData(
     functionFragment: "summonMinion",
-    values: [string, string, string, BigNumberish]
+    values: [string, string, string, string, BigNumberish]
   ): string;
   encodeFunctionData(functionFragment: "template", values?: undefined): string;
 
@@ -119,14 +119,16 @@ export class SafeMinionFactory extends Contract {
     summonMinion(
       moloch: string,
       executor: string,
+      multisend: string,
       details: string,
       minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "summonMinion(address,address,string,uint256)"(
+    "summonMinion(address,address,address,string,uint256)"(
       moloch: string,
       executor: string,
+      multisend: string,
       details: string,
       minQuorum: BigNumberish,
       overrides?: Overrides
@@ -175,14 +177,16 @@ export class SafeMinionFactory extends Contract {
   summonMinion(
     moloch: string,
     executor: string,
+    multisend: string,
     details: string,
     minQuorum: BigNumberish,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "summonMinion(address,address,string,uint256)"(
+  "summonMinion(address,address,address,string,uint256)"(
     moloch: string,
     executor: string,
+    multisend: string,
     details: string,
     minQuorum: BigNumberish,
     overrides?: Overrides
@@ -227,14 +231,16 @@ export class SafeMinionFactory extends Contract {
     summonMinion(
       moloch: string,
       executor: string,
+      multisend: string,
       details: string,
       minQuorum: BigNumberish,
       overrides?: CallOverrides
     ): Promise<string>;
 
-    "summonMinion(address,address,string,uint256)"(
+    "summonMinion(address,address,address,string,uint256)"(
       moloch: string,
       executor: string,
+      multisend: string,
       details: string,
       minQuorum: BigNumberish,
       overrides?: CallOverrides
@@ -280,14 +286,16 @@ export class SafeMinionFactory extends Contract {
     summonMinion(
       moloch: string,
       executor: string,
+      multisend: string,
       details: string,
       minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "summonMinion(address,address,string,uint256)"(
+    "summonMinion(address,address,address,string,uint256)"(
       moloch: string,
       executor: string,
+      multisend: string,
       details: string,
       minQuorum: BigNumberish,
       overrides?: Overrides
@@ -326,14 +334,16 @@ export class SafeMinionFactory extends Contract {
     summonMinion(
       moloch: string,
       executor: string,
+      multisend: string,
       details: string,
       minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "summonMinion(address,address,string,uint256)"(
+    "summonMinion(address,address,address,string,uint256)"(
       moloch: string,
       executor: string,
+      multisend: string,
       details: string,
       minQuorum: BigNumberish,
       overrides?: Overrides

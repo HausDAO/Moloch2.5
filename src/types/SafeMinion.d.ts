@@ -28,21 +28,18 @@ interface SafeMinionInterface extends ethers.utils.Interface {
     "crossWithdraw(address,address,uint256,bool)": FunctionFragment;
     "deleteAction(uint256)": FunctionFragment;
     "doWithdraw(address,uint256)": FunctionFragment;
-    "escapeHatch(address,uint256,bytes)": FunctionFragment;
-    "executeAction(uint256,address[],uint256[],bytes[])": FunctionFragment;
+    "executeAction(uint256,bytes)": FunctionFragment;
     "executor()": FunctionFragment;
-    "hashOperation(address[],uint256[],bytes[])": FunctionFragment;
-    "init(address,address,uint256)": FunctionFragment;
+    "hashOperation(bytes)": FunctionFragment;
+    "init(address,address,address,uint256)": FunctionFragment;
     "isMember(address)": FunctionFragment;
     "isValidSignature(bytes32,bytes)": FunctionFragment;
     "minQuorum()": FunctionFragment;
     "module()": FunctionFragment;
     "moloch()": FunctionFragment;
     "molochDepositToken()": FunctionFragment;
-    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)": FunctionFragment;
-    "onERC1155Received(address,address,uint256,uint256,bytes)": FunctionFragment;
-    "onERC721Received(address,address,uint256,bytes)": FunctionFragment;
-    "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)": FunctionFragment;
+    "multisend()": FunctionFragment;
+    "proposeAction(bytes,address,uint256,string,bool)": FunctionFragment;
     "setModule(address)": FunctionFragment;
     "sign(bytes32,bytes32,bytes4)": FunctionFragment;
     "signatures(bytes32)": FunctionFragment;
@@ -70,21 +67,17 @@ interface SafeMinionInterface extends ethers.utils.Interface {
     values: [string, BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "escapeHatch",
-    values: [string, BigNumberish, BytesLike]
-  ): string;
-  encodeFunctionData(
     functionFragment: "executeAction",
-    values: [BigNumberish, string[], BigNumberish[], BytesLike[]]
+    values: [BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(functionFragment: "executor", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "hashOperation",
-    values: [string[], BigNumberish[], BytesLike[]]
+    values: [BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "init",
-    values: [string, string, BigNumberish]
+    values: [string, string, string, BigNumberish]
   ): string;
   encodeFunctionData(functionFragment: "isMember", values: [string]): string;
   encodeFunctionData(
@@ -98,29 +91,10 @@ interface SafeMinionInterface extends ethers.utils.Interface {
     functionFragment: "molochDepositToken",
     values?: undefined
   ): string;
-  encodeFunctionData(
-    functionFragment: "onERC1155BatchReceived",
-    values: [string, string, BigNumberish[], BigNumberish[], BytesLike]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "onERC1155Received",
-    values: [string, string, BigNumberish, BigNumberish, BytesLike]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "onERC721Received",
-    values: [string, string, BigNumberish, BytesLike]
-  ): string;
+  encodeFunctionData(functionFragment: "multisend", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "proposeAction",
-    values: [
-      string[],
-      BigNumberish[],
-      BytesLike[],
-      string,
-      BigNumberish,
-      string,
-      boolean
-    ]
+    values: [BytesLike, string, BigNumberish, string, boolean]
   ): string;
   encodeFunctionData(functionFragment: "setModule", values: [string]): string;
   encodeFunctionData(
@@ -151,10 +125,6 @@ interface SafeMinionInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "doWithdraw", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "escapeHatch",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
     functionFragment: "executeAction",
     data: BytesLike
   ): Result;
@@ -176,18 +146,7 @@ interface SafeMinionInterface extends ethers.utils.Interface {
     functionFragment: "molochDepositToken",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(
-    functionFragment: "onERC1155BatchReceived",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "onERC1155Received",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "onERC721Received",
-    data: BytesLike
-  ): Result;
+  decodeFunctionResult(functionFragment: "multisend", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "proposeAction",
     data: BytesLike
@@ -202,11 +161,10 @@ interface SafeMinionInterface extends ethers.utils.Interface {
     "ChangeOwner(address)": EventFragment;
     "CrossWithdraw(address,address,uint256)": EventFragment;
     "DoWithdraw(address,uint256)": EventFragment;
-    "ExecuteAction(bytes32,uint256,uint256,address,uint256,bytes,address)": EventFragment;
+    "ExecuteAction(bytes32,uint256,bytes,address)": EventFragment;
     "ExecuteEscapeHatch(address,uint256,bytes,address)": EventFragment;
     "ExecuteSignature(uint256,address)": EventFragment;
-    "ProposeAction(bytes32,uint256,uint256,address,uint256,bytes)": EventFragment;
-    "ProposeNewAction(bytes32,uint256,address,uint256,address,bool)": EventFragment;
+    "ProposeNewAction(bytes32,uint256,address,uint256,address,bool,bytes)": EventFragment;
     "ProposeSignature(uint256,bytes32,address)": EventFragment;
     "PulledFunds(address,uint256)": EventFragment;
     "SetModule(address)": EventFragment;
@@ -221,7 +179,6 @@ interface SafeMinionInterface extends ethers.utils.Interface {
   getEvent(nameOrSignatureOrTopic: "ExecuteAction"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ExecuteEscapeHatch"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ExecuteSignature"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "ProposeAction"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ProposeNewAction"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ProposeSignature"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "PulledFunds"): EventFragment;
@@ -341,33 +298,15 @@ export class SafeMinion extends Contract {
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    escapeHatch(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
-      overrides?: Overrides
-    ): Promise<ContractTransaction>;
-
-    "escapeHatch(address,uint256,bytes)"(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
-      overrides?: Overrides
-    ): Promise<ContractTransaction>;
-
     executeAction(
       proposalId: BigNumberish,
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "executeAction(uint256,address[],uint256[],bytes[])"(
+    "executeAction(uint256,bytes)"(
       proposalId: BigNumberish,
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
@@ -380,19 +319,15 @@ export class SafeMinion extends Contract {
     }>;
 
     hashOperation(
-      targets: string[],
-      values: BigNumberish[],
-      datas: BytesLike[],
+      transactions: BytesLike,
       overrides?: CallOverrides
     ): Promise<{
       hash: string;
       0: string;
     }>;
 
-    "hashOperation(address[],uint256[],bytes[])"(
-      targets: string[],
-      values: BigNumberish[],
-      datas: BytesLike[],
+    "hashOperation(bytes)"(
+      transactions: BytesLike,
       overrides?: CallOverrides
     ): Promise<{
       hash: string;
@@ -402,13 +337,15 @@ export class SafeMinion extends Contract {
     init(
       _moloch: string,
       _executor: string,
+      _multisend: string,
       _minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "init(address,address,uint256)"(
+    "init(address,address,address,uint256)"(
       _moloch: string,
       _executor: string,
+      _multisend: string,
       _minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
@@ -475,74 +412,16 @@ export class SafeMinion extends Contract {
       0: string;
     }>;
 
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<{
+    multisend(overrides?: CallOverrides): Promise<{
       0: string;
     }>;
 
-    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<{
-      0: string;
-    }>;
-
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<{
-      0: string;
-    }>;
-
-    "onERC1155Received(address,address,uint256,uint256,bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<{
-      0: string;
-    }>;
-
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<{
-      0: string;
-    }>;
-
-    "onERC721Received(address,address,uint256,bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<{
+    "multisend()"(overrides?: CallOverrides): Promise<{
       0: string;
     }>;
 
     proposeAction(
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
@@ -550,10 +429,8 @@ export class SafeMinion extends Contract {
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)"(
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+    "proposeAction(bytes,address,uint256,string,bool)"(
+      transactions: BytesLike,
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
@@ -704,33 +581,15 @@ export class SafeMinion extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  escapeHatch(
-    actionTo: string,
-    actionValue: BigNumberish,
-    actionData: BytesLike,
-    overrides?: Overrides
-  ): Promise<ContractTransaction>;
-
-  "escapeHatch(address,uint256,bytes)"(
-    actionTo: string,
-    actionValue: BigNumberish,
-    actionData: BytesLike,
-    overrides?: Overrides
-  ): Promise<ContractTransaction>;
-
   executeAction(
     proposalId: BigNumberish,
-    actionTos: string[],
-    actionValues: BigNumberish[],
-    actionDatas: BytesLike[],
+    transactions: BytesLike,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "executeAction(uint256,address[],uint256[],bytes[])"(
+  "executeAction(uint256,bytes)"(
     proposalId: BigNumberish,
-    actionTos: string[],
-    actionValues: BigNumberish[],
-    actionDatas: BytesLike[],
+    transactions: BytesLike,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
@@ -739,29 +598,27 @@ export class SafeMinion extends Contract {
   "executor()"(overrides?: CallOverrides): Promise<string>;
 
   hashOperation(
-    targets: string[],
-    values: BigNumberish[],
-    datas: BytesLike[],
+    transactions: BytesLike,
     overrides?: CallOverrides
   ): Promise<string>;
 
-  "hashOperation(address[],uint256[],bytes[])"(
-    targets: string[],
-    values: BigNumberish[],
-    datas: BytesLike[],
+  "hashOperation(bytes)"(
+    transactions: BytesLike,
     overrides?: CallOverrides
   ): Promise<string>;
 
   init(
     _moloch: string,
     _executor: string,
+    _multisend: string,
     _minQuorum: BigNumberish,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "init(address,address,uint256)"(
+  "init(address,address,address,uint256)"(
     _moloch: string,
     _executor: string,
+    _multisend: string,
     _minQuorum: BigNumberish,
     overrides?: Overrides
   ): Promise<ContractTransaction>;
@@ -801,62 +658,12 @@ export class SafeMinion extends Contract {
 
   "molochDepositToken()"(overrides?: CallOverrides): Promise<string>;
 
-  onERC1155BatchReceived(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish[],
-    arg3: BigNumberish[],
-    arg4: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
+  multisend(overrides?: CallOverrides): Promise<string>;
 
-  "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish[],
-    arg3: BigNumberish[],
-    arg4: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  onERC1155Received(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish,
-    arg3: BigNumberish,
-    arg4: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  "onERC1155Received(address,address,uint256,uint256,bytes)"(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish,
-    arg3: BigNumberish,
-    arg4: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  onERC721Received(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish,
-    arg3: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
-
-  "onERC721Received(address,address,uint256,bytes)"(
-    arg0: string,
-    arg1: string,
-    arg2: BigNumberish,
-    arg3: BytesLike,
-    overrides?: CallOverrides
-  ): Promise<string>;
+  "multisend()"(overrides?: CallOverrides): Promise<string>;
 
   proposeAction(
-    actionTos: string[],
-    actionValues: BigNumberish[],
-    actionDatas: BytesLike[],
+    transactions: BytesLike,
     withdrawToken: string,
     withdrawAmount: BigNumberish,
     details: string,
@@ -864,10 +671,8 @@ export class SafeMinion extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)"(
-    actionTos: string[],
-    actionValues: BigNumberish[],
-    actionDatas: BytesLike[],
+  "proposeAction(bytes,address,uint256,string,bool)"(
+    transactions: BytesLike,
     withdrawToken: string,
     withdrawAmount: BigNumberish,
     details: string,
@@ -1015,33 +820,15 @@ export class SafeMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<void>;
 
-    escapeHatch(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<boolean>;
-
-    "escapeHatch(address,uint256,bytes)"(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<boolean>;
-
     executeAction(
       proposalId: BigNumberish,
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       overrides?: CallOverrides
     ): Promise<boolean>;
 
-    "executeAction(uint256,address[],uint256[],bytes[])"(
+    "executeAction(uint256,bytes)"(
       proposalId: BigNumberish,
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       overrides?: CallOverrides
     ): Promise<boolean>;
 
@@ -1050,29 +837,27 @@ export class SafeMinion extends Contract {
     "executor()"(overrides?: CallOverrides): Promise<string>;
 
     hashOperation(
-      targets: string[],
-      values: BigNumberish[],
-      datas: BytesLike[],
+      transactions: BytesLike,
       overrides?: CallOverrides
     ): Promise<string>;
 
-    "hashOperation(address[],uint256[],bytes[])"(
-      targets: string[],
-      values: BigNumberish[],
-      datas: BytesLike[],
+    "hashOperation(bytes)"(
+      transactions: BytesLike,
       overrides?: CallOverrides
     ): Promise<string>;
 
     init(
       _moloch: string,
       _executor: string,
+      _multisend: string,
       _minQuorum: BigNumberish,
       overrides?: CallOverrides
     ): Promise<void>;
 
-    "init(address,address,uint256)"(
+    "init(address,address,address,uint256)"(
       _moloch: string,
       _executor: string,
+      _multisend: string,
       _minQuorum: BigNumberish,
       overrides?: CallOverrides
     ): Promise<void>;
@@ -1112,62 +897,12 @@ export class SafeMinion extends Contract {
 
     "molochDepositToken()"(overrides?: CallOverrides): Promise<string>;
 
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
+    multisend(overrides?: CallOverrides): Promise<string>;
 
-    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    "onERC1155Received(address,address,uint256,uint256,bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
-
-    "onERC721Received(address,address,uint256,bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<string>;
+    "multisend()"(overrides?: CallOverrides): Promise<string>;
 
     proposeAction(
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
@@ -1175,10 +910,8 @@ export class SafeMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)"(
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+    "proposeAction(bytes,address,uint256,string,bool)"(
+      transactions: BytesLike,
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
@@ -1242,10 +975,7 @@ export class SafeMinion extends Contract {
     ExecuteAction(
       id: BytesLike | null,
       proposalId: BigNumberish | null,
-      index: null,
-      target: null,
-      value: null,
-      data: null,
+      transactions: null,
       executor: null
     ): EventFilter;
 
@@ -1258,22 +988,14 @@ export class SafeMinion extends Contract {
 
     ExecuteSignature(proposalId: null, executor: null): EventFilter;
 
-    ProposeAction(
-      id: BytesLike | null,
-      proposalId: BigNumberish | null,
-      index: null,
-      target: null,
-      value: null,
-      data: null
-    ): EventFilter;
-
     ProposeNewAction(
       id: BytesLike | null,
       proposalId: BigNumberish | null,
       withdrawToken: null,
       withdrawAmount: null,
       moloch: null,
-      memberOrModule: null
+      memberOrModule: null,
+      transactions: null
     ): EventFilter;
 
     ProposeSignature(
@@ -1352,33 +1074,15 @@ export class SafeMinion extends Contract {
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    escapeHatch(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
-      overrides?: Overrides
-    ): Promise<BigNumber>;
-
-    "escapeHatch(address,uint256,bytes)"(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
-      overrides?: Overrides
-    ): Promise<BigNumber>;
-
     executeAction(
       proposalId: BigNumberish,
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "executeAction(uint256,address[],uint256[],bytes[])"(
+    "executeAction(uint256,bytes)"(
       proposalId: BigNumberish,
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
@@ -1387,29 +1091,27 @@ export class SafeMinion extends Contract {
     "executor()"(overrides?: CallOverrides): Promise<BigNumber>;
 
     hashOperation(
-      targets: string[],
-      values: BigNumberish[],
-      datas: BytesLike[],
+      transactions: BytesLike,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    "hashOperation(address[],uint256[],bytes[])"(
-      targets: string[],
-      values: BigNumberish[],
-      datas: BytesLike[],
+    "hashOperation(bytes)"(
+      transactions: BytesLike,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     init(
       _moloch: string,
       _executor: string,
+      _multisend: string,
       _minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "init(address,address,uint256)"(
+    "init(address,address,address,uint256)"(
       _moloch: string,
       _executor: string,
+      _multisend: string,
       _minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<BigNumber>;
@@ -1449,62 +1151,12 @@ export class SafeMinion extends Contract {
 
     "molochDepositToken()"(overrides?: CallOverrides): Promise<BigNumber>;
 
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
+    multisend(overrides?: CallOverrides): Promise<BigNumber>;
 
-    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    "onERC1155Received(address,address,uint256,uint256,bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    "onERC721Received(address,address,uint256,bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
+    "multisend()"(overrides?: CallOverrides): Promise<BigNumber>;
 
     proposeAction(
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
@@ -1512,10 +1164,8 @@ export class SafeMinion extends Contract {
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)"(
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+    "proposeAction(bytes,address,uint256,string,bool)"(
+      transactions: BytesLike,
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
@@ -1621,33 +1271,15 @@ export class SafeMinion extends Contract {
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    escapeHatch(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
-      overrides?: Overrides
-    ): Promise<PopulatedTransaction>;
-
-    "escapeHatch(address,uint256,bytes)"(
-      actionTo: string,
-      actionValue: BigNumberish,
-      actionData: BytesLike,
-      overrides?: Overrides
-    ): Promise<PopulatedTransaction>;
-
     executeAction(
       proposalId: BigNumberish,
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "executeAction(uint256,address[],uint256[],bytes[])"(
+    "executeAction(uint256,bytes)"(
       proposalId: BigNumberish,
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
@@ -1656,29 +1288,27 @@ export class SafeMinion extends Contract {
     "executor()"(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     hashOperation(
-      targets: string[],
-      values: BigNumberish[],
-      datas: BytesLike[],
+      transactions: BytesLike,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
-    "hashOperation(address[],uint256[],bytes[])"(
-      targets: string[],
-      values: BigNumberish[],
-      datas: BytesLike[],
+    "hashOperation(bytes)"(
+      transactions: BytesLike,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     init(
       _moloch: string,
       _executor: string,
+      _multisend: string,
       _minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "init(address,address,uint256)"(
+    "init(address,address,address,uint256)"(
       _moloch: string,
       _executor: string,
+      _multisend: string,
       _minQuorum: BigNumberish,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
@@ -1725,62 +1355,12 @@ export class SafeMinion extends Contract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
-    onERC1155BatchReceived(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
+    multisend(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
-    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish[],
-      arg3: BigNumberish[],
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    onERC1155Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    "onERC1155Received(address,address,uint256,uint256,bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BigNumberish,
-      arg4: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    onERC721Received(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    "onERC721Received(address,address,uint256,bytes)"(
-      arg0: string,
-      arg1: string,
-      arg2: BigNumberish,
-      arg3: BytesLike,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
+    "multisend()"(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     proposeAction(
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+      transactions: BytesLike,
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,
@@ -1788,10 +1368,8 @@ export class SafeMinion extends Contract {
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "proposeAction(address[],uint256[],bytes[],address,uint256,string,bool)"(
-      actionTos: string[],
-      actionValues: BigNumberish[],
-      actionDatas: BytesLike[],
+    "proposeAction(bytes,address,uint256,string,bool)"(
+      transactions: BytesLike,
       withdrawToken: string,
       withdrawAmount: BigNumberish,
       details: string,

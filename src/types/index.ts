@@ -19,6 +19,8 @@ export { AnyErc20Factory } from "./AnyErc20Factory";
 export type { AnyErc20 } from "./AnyErc20";
 export { AnyNftFactory } from "./AnyNftFactory";
 export type { AnyNft } from "./AnyNft";
+export { MultiSendFactory } from "./MultiSendFactory";
+export type { MultiSend } from "./MultiSend";
 export { TestExecutorFactory } from "./TestExecutorFactory";
 export type { TestExecutor } from "./TestExecutor";
 export { DaoConditionalHelperFactory } from "./DaoConditionalHelperFactory";
