@@ -6,6 +6,6 @@ artifacts
 
 mnemonic.txt
 
-nftContent/
+src/types/
 
 *.txt
