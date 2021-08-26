@@ -126,8 +126,12 @@ describe.only('Safe Minion Functionality', function () {
       gnosisSafe = (await GnosisSafe.attach(proxy.address)) as GnosisSafe
       safeMinion = (await SafeMinion.deploy()) as SafeMinion
       
-      await gnosisSafe.setup([testWallet.address], 1, zeroAddress, [], zeroAddress, zeroAddress, 0, zeroAddress)
-      await executeContractCallWithSigners(gnosisSafe, gnosisSafe, "enableModule", [safeMinion.address], [testWallet])
+      const enableModuleAction = gnosisSafe.interface.encodeFunctionData("enableModule", [
+        safeMinion.address,
+      ]);
+      const multi_action = encodeMultiAction(multisend, [enableModuleAction], [gnosisSafe.address])
+      await gnosisSafe.setup([testWallet.address], 1, multisend.address, multi_action, zeroAddress, zeroAddress, 0, zeroAddress)
+      // await executeContractCallWithSigners(gnosisSafe, gnosisSafe, "enableModule", [safeMinion.address], [testWallet])
 
       await anyErc20.mint(gnosisSafe.address, 500)
 
@@ -141,6 +145,8 @@ describe.only('Safe Minion Functionality', function () {
       expect(await moloch.totalGuildBankTokens()).to.equal(1)
       expect((await moloch.members(aliceAddress)).shares).to.equal(50)
       expect((await moloch.members(deployerAddress)).shares).to.equal(100)
+      expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(false)
+      expect(await gnosisSafe.isModuleEnabled(safeMinion.address)).to.equal(true)
     })
     // describe("Signatures", function() {
     //   it('Allows a member to submit a signature proposal and mark it valid through voting', async function () {
@@ -170,6 +176,25 @@ describe.only('Safe Minion Functionality', function () {
     // })
     
     describe("Safe management", function() {
+      it("Enables multiple modules to be activated on setup", async function() {
+        const proxy = await GnosisSafeProxy.deploy(gnosisSafeSingleton.address)
+        gnosisSafe = (await GnosisSafe.attach(proxy.address)) as GnosisSafe
+
+        expect(await gnosisSafe.isModuleEnabled(safeMinion.address)).to.equal(false)
+        expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(false)
+
+        const enableModuleAction_1 = gnosisSafe.interface.encodeFunctionData("enableModule", [
+          safeMinion.address,
+        ]);
+        const enableModuleAction_2 = gnosisSafe.interface.encodeFunctionData("enableModule", [
+          deployerAddress,
+        ]);
+        const multi_action = encodeMultiAction(multisend, [enableModuleAction_1, enableModuleAction_2], [gnosisSafe.address, gnosisSafe.address])
+        await gnosisSafe.setup([testWallet.address], 1, multisend.address, multi_action, zeroAddress, zeroAddress, 0, zeroAddress)
+        expect(await gnosisSafe.isModuleEnabled(safeMinion.address)).to.equal(true)
+        expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(true)
+
+      })
       it("Enables a minion to add another module", async function() {
         expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(false)
         const action_1 = gnosisSafe.interface.encodeFunctionData("enableModule", [
@@ -181,6 +206,21 @@ describe.only('Safe Minion Functionality', function () {
 
         await safeMinion.executeAction(0, multi_action)
         expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(true)
+
+      })
+
+      it("Enables a minion to add an owner", async function() {
+        expect(await gnosisSafe.isOwner(deployerAddress)).to.equal(false)
+        const action_1 = gnosisSafe.interface.encodeFunctionData("addOwnerWithThreshold", [
+          deployerAddress,
+          1
+        ]);
+        const multi_action = encodeMultiAction(multisend, [action_1], [gnosisSafe.address])
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
+        await doProposal(true, 0, moloch)
+
+        await safeMinion.executeAction(0, multi_action)
+        expect(await gnosisSafe.isOwner(deployerAddress)).to.equal(true)
 
       })
     })
