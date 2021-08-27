@@ -9,7 +9,9 @@ import { SafeMinion } from '../src/types/SafeMinion'
 // import { TestExecutor } from '../src/types/TestExecutor'
 import { GnosisSafe } from '../src/types/GnosisSafe'
 import { GnosisSafeProxy } from '../src/types/GnosisSafeProxy'
+import { CompatibilityFallbackHandler } from '../src/types/CompatibilityFallbackHandler'
 import { MultiSend } from '../src/types/MultiSend'
+import { SignMessageLib } from '../src/types/SignMessageLib'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { doProposal, encodeMultiAction, fastForwardBlocks } from './util'
 import { encodeMultiSend, executeContractCallWithSigners, MetaTransaction } from '@gnosis.pm/safe-contracts'
@@ -22,6 +24,12 @@ describe.only('Safe Minion Functionality', function () {
 
   let MultiSend: ContractFactory
   let multisend: MultiSend
+
+  let SignMessageLib: ContractFactory
+  let signMessageLib: SignMessageLib
+
+  let CompatibilityFallbackHandler: ContractFactory
+  let handler: CompatibilityFallbackHandler
 
   let molochAsAlice: Moloch
 
@@ -53,8 +61,6 @@ describe.only('Safe Minion Functionality', function () {
   let aliceAddress: string
   let bobAddress: string
 
-  let arbitarySignature: string
-  let arbitrarySignatureHash: string
   let arbitraryMsgHash: string
   let magicValue: string
   
@@ -75,6 +81,8 @@ describe.only('Safe Minion Functionality', function () {
     GnosisSafe = await ethers.getContractFactory('GnosisSafe')
     GnosisSafeProxy = await ethers.getContractFactory('GnosisSafeProxy')
     MultiSend = await ethers.getContractFactory('MultiSend')
+    SignMessageLib = await ethers.getContractFactory('SignMessageLib')
+    CompatibilityFallbackHandler = await ethers.getContractFactory('CompatibilityFallbackHandler')
     AnyERC20 = await ethers.getContractFactory('AnyERC20')
     signers = await ethers.getSigners()
     deployer = signers[0]
@@ -84,14 +92,14 @@ describe.only('Safe Minion Functionality', function () {
     deployerAddress = deployer.address
     aliceAddress = alice.address
     bobAddress = bob.address
-    arbitarySignature = await alice.signMessage('This can be anything')
-    arbitrarySignatureHash = ethers.utils.solidityKeccak256(['bytes'], [arbitarySignature])
     arbitraryMsgHash = await ethers.utils.hashMessage('This does not have to be the same')
     magicValue = '0x1626ba7e'
     
     // Deploy gnosis singleton
     gnosisSafeSingleton = (await GnosisSafe.deploy()) as GnosisSafe
     multisend = (await MultiSend.deploy()) as MultiSend
+    signMessageLib = (await SignMessageLib.deploy()) as SignMessageLib
+    handler = (await CompatibilityFallbackHandler.deploy()) as CompatibilityFallbackHandler
 
     testWallet = await testWalletAbstract.connect(ethers.provider)
   })
@@ -129,8 +137,8 @@ describe.only('Safe Minion Functionality', function () {
       const enableModuleAction = gnosisSafe.interface.encodeFunctionData("enableModule", [
         safeMinion.address,
       ]);
-      const multi_action = encodeMultiAction(multisend, [enableModuleAction], [gnosisSafe.address])
-      await gnosisSafe.setup([testWallet.address], 1, multisend.address, multi_action, zeroAddress, zeroAddress, 0, zeroAddress)
+      const multi_action = encodeMultiAction(multisend, [enableModuleAction], [gnosisSafe.address], [0])
+      await gnosisSafe.setup([testWallet.address], 1, multisend.address, multi_action, handler.address, zeroAddress, 0, zeroAddress)
       // await executeContractCallWithSigners(gnosisSafe, gnosisSafe, "enableModule", [safeMinion.address], [testWallet])
 
       await anyErc20.mint(gnosisSafe.address, 500)
@@ -148,32 +156,35 @@ describe.only('Safe Minion Functionality', function () {
       expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(false)
       expect(await gnosisSafe.isModuleEnabled(safeMinion.address)).to.equal(true)
     })
-    // describe("Signatures", function() {
-    //   it('Allows a member to submit a signature proposal and mark it valid through voting', async function () {
-    //     const sign_action_1 = safeMinion.interface.encodeFunctionData("sign", [
-    //       arbitraryMsgHash,
-    //       arbitrarySignatureHash,
-    //       magicValue
-    //     ]);
-    //     await safeMinion.proposeAction(
-    //       [safeMinion.address],
-    //       [0],
-    //       [sign_action_1],
-    //       anyErc20.address,
-    //       0,
-    //       "test",
-    //       false
-    //     )
+    describe("Signatures", function() {
+      it('Allows a member to submit a signature proposal and mark it valid through voting', async function () {
+        const sign_action_1 = signMessageLib.interface.encodeFunctionData("signMessage", [
+          arbitraryMsgHash,
+        ]);
+        const multi_action = encodeMultiAction(multisend, [sign_action_1], [signMessageLib.address], [1])
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
 
-    //     await doProposal(true, 0, moloch)
+        await doProposal(true, 0, moloch)
 
-    //     await safeMinion.executeAction(0, [safeMinion.address], [0], [sign_action_1])
+        await safeMinion.executeAction(0, multi_action)
 
-    //     expect(await safeMinion.isValidSignature(arbitraryMsgHash, arbitarySignature)).to.equal(magicValue)
+        const validator = await handler.attach(gnosisSafe.address)
+        expect(await validator.callStatic['isValidSignature(bytes32,bytes)'](arbitraryMsgHash, "0x")).to.equal(magicValue)
 
-    //   })
+      })
 
-    // })
+      it('Fails if proposal has not passed', async function () {
+        const sign_action_1 = signMessageLib.interface.encodeFunctionData("signMessage", [
+          arbitraryMsgHash,
+        ]);
+        const multi_action = encodeMultiAction(multisend, [sign_action_1], [signMessageLib.address], [1])
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
+
+        const validator = await handler.attach(gnosisSafe.address)
+        expect(validator.callStatic['isValidSignature(bytes32,bytes)'](arbitraryMsgHash, "0x")).to.be.revertedWith('Hash not approved')
+      })
+
+    })
     
     describe("Safe management", function() {
       it("Enables multiple modules to be activated on setup", async function() {
@@ -189,7 +200,7 @@ describe.only('Safe Minion Functionality', function () {
         const enableModuleAction_2 = gnosisSafe.interface.encodeFunctionData("enableModule", [
           deployerAddress,
         ]);
-        const multi_action = encodeMultiAction(multisend, [enableModuleAction_1, enableModuleAction_2], [gnosisSafe.address, gnosisSafe.address])
+        const multi_action = encodeMultiAction(multisend, [enableModuleAction_1, enableModuleAction_2], [gnosisSafe.address, gnosisSafe.address], [0,0])
         await gnosisSafe.setup([testWallet.address], 1, multisend.address, multi_action, zeroAddress, zeroAddress, 0, zeroAddress)
         expect(await gnosisSafe.isModuleEnabled(safeMinion.address)).to.equal(true)
         expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(true)
@@ -200,7 +211,7 @@ describe.only('Safe Minion Functionality', function () {
         const action_1 = gnosisSafe.interface.encodeFunctionData("enableModule", [
           deployerAddress,
         ]);
-        const multi_action = encodeMultiAction(multisend, [action_1], [gnosisSafe.address])
+        const multi_action = encodeMultiAction(multisend, [action_1], [gnosisSafe.address], [0])
         await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
         await doProposal(true, 0, moloch)
 
@@ -215,7 +226,7 @@ describe.only('Safe Minion Functionality', function () {
           deployerAddress,
           1
         ]);
-        const multi_action = encodeMultiAction(multisend, [action_1], [gnosisSafe.address])
+        const multi_action = encodeMultiAction(multisend, [action_1], [gnosisSafe.address], [0])
         await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
         await doProposal(true, 0, moloch)
 
@@ -234,7 +245,7 @@ describe.only('Safe Minion Functionality', function () {
           10,
         ]);
 
-        const multi_action = encodeMultiAction(multisend, [action_1], [anyErc20.address])
+        const multi_action = encodeMultiAction(multisend, [action_1], [anyErc20.address], [0])
         await safeMinion.proposeAction(multi_action, anyErc20.address, 100, 'test', false)
 
 
@@ -256,7 +267,7 @@ describe.only('Safe Minion Functionality', function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
-        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address])
+        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address], [0,0])
 
         await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
 
@@ -272,8 +283,8 @@ describe.only('Safe Minion Functionality', function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const delete_action_1 = safeMinion.interface.encodeFunctionData("deleteAction", [0])
 
-        const multi_action_1 = encodeMultiAction(multisend, [action_1], [anyErc20.address])
-        const delete_multi_action_1 = encodeMultiAction(multisend, [delete_action_1], [safeMinion.address])
+        const multi_action_1 = encodeMultiAction(multisend, [action_1], [anyErc20.address], [0])
+        const delete_multi_action_1 = encodeMultiAction(multisend, [delete_action_1], [safeMinion.address], [0])
 
         await safeMinion.proposeAction(multi_action_1, anyErc20.address, 0, 'test', false)
 
@@ -291,7 +302,7 @@ describe.only('Safe Minion Functionality', function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
-        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address])
+        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address], [0,0])
 
         await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
 
@@ -315,7 +326,7 @@ describe.only('Safe Minion Functionality', function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
-        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address])
+        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address], [0,0])
 
         await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
 
@@ -332,7 +343,7 @@ describe.only('Safe Minion Functionality', function () {
 
       it('It withdraws tokens from treasury when part of the proposal', async function () {
         const action_1 = anyErc20.interface.encodeFunctionData('approve', [aliceAddress, 10])
-        const multi_action = encodeMultiAction(multisend, [action_1], [anyErc20.address])
+        const multi_action = encodeMultiAction(multisend, [action_1], [anyErc20.address], [0])
 
         // withdraw 10 anytoken on execute
         await safeMinion.proposeAction(multi_action, anyErc20.address, 10, 'test', false)
@@ -347,11 +358,11 @@ describe.only('Safe Minion Functionality', function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
-        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address])
+        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address], [0,0])
 
         const invalid_action = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 30])
 
-        const invalid_multi_action = encodeMultiAction(multisend, [action_1, invalid_action], [anyErc20.address, anyErc20.address])
+        const invalid_multi_action = encodeMultiAction(multisend, [action_1, invalid_action], [anyErc20.address, anyErc20.address], [0,0])
 
         await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
 
@@ -369,7 +380,7 @@ describe.only('Safe Minion Functionality', function () {
         ])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
-        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [helper.address, anyErc20.address])
+        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [helper.address, anyErc20.address], [0,0])
 
         await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
 
@@ -387,7 +398,7 @@ describe.only('Safe Minion Functionality', function () {
         ])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
-        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [helper.address, anyErc20.address])
+        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [helper.address, anyErc20.address], [0,0])
 
         await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
 
@@ -402,7 +413,7 @@ describe.only('Safe Minion Functionality', function () {
         const action_1 = helper.interface.encodeFunctionData('isNotDaoMember', [aliceAddress, moloch.address])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
-        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [helper.address, anyErc20.address])
+        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [helper.address, anyErc20.address], [0,0])
 
         await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
 

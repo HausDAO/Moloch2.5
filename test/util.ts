@@ -28,14 +28,14 @@ export const doProposal = async (pass: boolean, proposalId: number, moloch: Molo
 
 }
 
-export const encodeMultiAction = (multisend: MultiSend, actions: string[], tos: string[]) => {
+export const encodeMultiAction = (multisend: MultiSend, actions: string[], tos: string[], operations: number[]) => {
   let metatransactions: MetaTransaction[] = []
   for (let index = 0; index < actions.length; index++) {
     metatransactions.push({
       to: tos[index],
       value: 0,
       data: actions[index],
-      operation: 0
+      operation: operations[index]
     })
     
   }
