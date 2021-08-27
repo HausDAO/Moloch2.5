@@ -153,21 +153,15 @@ contract SafeMinion is IERC1271, Enum {
     // events consts
 
     string private constant ERROR_INIT = "Minion::initialized";
-    string private constant ERROR_LENGTH_MISMATCH = "Minion::length mismatch";
     string private constant ERROR_REQS_NOT_MET =
         "Minion::proposal execution requirements not met";
     string private constant ERROR_NOT_VALID = "Minion::not a valid operation";
     string private constant ERROR_EXECUTED = "Minion::action already executed";
     string private constant ERROR_DELETED = "Minion::action was deleted";
-    string private constant ERROR_FUNDS = "Minion::insufficient native token";
     string private constant ERROR_CALL_FAIL = "Minion::call failure";
     string private constant ERROR_NOT_WL = "Minion::not a whitelisted token";
     string private constant ERROR_TX_FAIL = "Minion::token transfer failed";
     string private constant ERROR_NOT_PROPOSER = "Minion::not proposer";
-    string private constant ERROR_THIS_ONLY =
-        "Minion::can only be called by this";
-    string private constant ERROR_EXECUTOR_ONLY =
-        "Minion::can only be called by executor";
     string private constant ERROR_MEMBER_ONLY = "Minion::not member";
     string private constant ERROR_MEMBER_OR_MODULE_ONLY =
         "Minion::not member or module";
@@ -249,16 +243,6 @@ contract SafeMinion is IERC1271, Enum {
             isMember(msg.sender) || msg.sender == module,
             ERROR_MEMBER_OR_MODULE_ONLY
         );
-        _;
-    }
-
-    modifier thisOnly() {
-        require(msg.sender == address(this), ERROR_THIS_ONLY);
-        _;
-    }
-
-    modifier executorOnly() {
-        require(msg.sender == address(executor), ERROR_THIS_ONLY);
         _;
     }
 
