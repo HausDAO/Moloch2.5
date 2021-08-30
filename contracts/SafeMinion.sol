@@ -589,29 +589,42 @@ contract SafeMinionSummoner is CloneFactory {
 
         return (address(minion));
     }
-    
+
     function summonMinionAndSafe(
         address moloch,
         string memory details,
         uint256 minQuorum
     ) external returns (address) {
+        // Deploy new minion
         SafeMinion minion = SafeMinion(createClone(template));
-        
-        address[] memory owners = new address[](1);
 
+        // Workaround for solidity dynamic memory array
+        address[] memory owners = new address[](1);
         owners[0] = address(minion);
 
+        // Deploy new safe
+        GnosisSafeProxy proxy = new GnosisSafeProxy(gnosisSingleton);
+        GnosisSafe safe = GnosisSafe(payable(address(proxy)));
+
+        // Configure Safe START
         bytes memory enableMinion = abi.encodeWithSignature(
             "enableModule(address)",
             address(minion)
         );
-        
 
-        GnosisSafeProxy proxy = new GnosisSafeProxy(gnosisSingleton);
-        bytes memory enableMinionMultisend = abi.encodePacked(uint8(0),address(proxy),uint256(0),uint256(enableMinion.length),bytes(enableMinion));
-        bytes memory multisendAction = abi.encodeWithSignature("multiSend(bytes)",enableMinionMultisend);
-        
-        GnosisSafe safe = GnosisSafe(payable(address(proxy)));
+        // Encode minion enable to be called by the multisend contract via delegate call
+        bytes memory enableMinionMultisend = abi.encodePacked(
+            uint8(0),
+            address(proxy),
+            uint256(0),
+            uint256(enableMinion.length),
+            bytes(enableMinion)
+        );
+        bytes memory multisendAction = abi.encodeWithSignature(
+            "multiSend(bytes)",
+            enableMinionMultisend
+        );
+
         safe.setup(
             owners,
             1,
@@ -622,6 +635,7 @@ contract SafeMinionSummoner is CloneFactory {
             0,
             payable(address(0))
         );
+        // Configure Safe END
 
         minion.init(moloch, address(proxy), gnosisMultisend, minQuorum);
 
