@@ -542,6 +542,7 @@ contract SafeMinionSummoner is CloneFactory {
     event SummonMinion(
         address indexed minion,
         address indexed moloch,
+        address indexed gnosis,
         string details,
         string minionType,
         uint256 minQuorum
@@ -570,18 +571,19 @@ contract SafeMinionSummoner is CloneFactory {
     function summonMinion(
         address moloch,
         address executor,
-        address multisend,
         string memory details,
         uint256 minQuorum
     ) external returns (address) {
         SafeMinion minion = SafeMinion(createClone(template));
-        minion.init(moloch, executor, multisend, minQuorum);
+        minion.init(moloch, executor, gnosisMultisend, minQuorum);
 
         minions[address(minion)] = AMinion(moloch, details);
         minionList.push(address(minion));
+        minionCount++;
         emit SummonMinion(
             address(minion),
             moloch,
+            executor,
             details,
             minionType,
             minQuorum
@@ -645,6 +647,7 @@ contract SafeMinionSummoner is CloneFactory {
         emit SummonMinion(
             address(minion),
             moloch,
+            address(proxy),
             details,
             minionType,
             minQuorum

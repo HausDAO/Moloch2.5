@@ -154,13 +154,12 @@ describe.only('Safe Minion Functionality', function () {
       const gnosisSafeAddress = await safeMinion.executor()
       await anyErc20.mint(gnosisSafeAddress, 500)
       gnosisSafe = (await GnosisSafe.attach(gnosisSafeAddress)) as GnosisSafe
-
     })
 
     it('Sets up the tests', async function () {
       const threshold = await gnosisSafe.getThreshold()
-      console.log({safeMinion: safeMinion.address, gnosisSafe: gnosisSafe.address})
-      console.log({threshold})
+      console.log({ safeMinion: safeMinion.address, gnosisSafe: gnosisSafe.address })
+      console.log({ threshold })
       expect(await moloch.totalGuildBankTokens()).to.equal(1)
       expect((await moloch.members(aliceAddress)).shares).to.equal(50)
       expect((await moloch.members(deployerAddress)).shares).to.equal(100)
@@ -196,6 +195,10 @@ describe.only('Safe Minion Functionality', function () {
       it('Enables multiple modules to be activated on setup', async function () {
         const proxy = await GnosisSafeProxy.deploy(gnosisSafeSingleton.address)
         gnosisSafe = (await GnosisSafe.attach(proxy.address)) as GnosisSafe
+        await safeMinionSummoner.summonMinion(moloch.address, gnosisSafe.address, '', minQuorum)
+        const newMinionCount = (await safeMinionSummoner.minionCount()).toNumber()
+        const newMinionAddress = await safeMinionSummoner.minionList(newMinionCount - 1)
+        safeMinion = (await SafeMinion.attach(newMinionAddress)) as SafeMinion
 
         expect(await gnosisSafe.isModuleEnabled(safeMinion.address)).to.equal(false)
         expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(false)
