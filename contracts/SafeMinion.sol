@@ -240,28 +240,6 @@ contract SafeMinion is Enum, Module {
         emit DoWithdraw(token, amount);
     }
 
-    function crossWithdraw(
-        address target,
-        address token,
-        uint256 amount,
-        bool transfer
-    ) external memberOnly {
-        // @Dev - Target needs to have a withdrawBalance functions
-        IMOLOCH(target).withdrawBalance(token, amount);
-
-        // Transfers token into DAO.
-        if (transfer) {
-            bool whitelisted = moloch.tokenWhitelist(token);
-            require(whitelisted, ERROR_NOT_WL);
-            require(
-                IERC20(token).transfer(address(moloch), amount),
-                ERROR_TX_FAIL
-            );
-        }
-
-        emit CrossWithdraw(target, token, amount);
-    }
-
     //  -- Proposal Functions --
     function proposeAction(
         bytes memory transactions,
