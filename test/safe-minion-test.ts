@@ -174,6 +174,39 @@ describe.only('Safe Minion Functionality', function () {
       // expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(false)
       // expect(await gnosisSafe.isModuleEnabled(safeMinion.address)).to.equal(true)
     })
+    
+    describe('Module Boilerplate', function () {
+      it('Sets the safe as the owner and avatar', async function () {
+        expect (await safeMinion.owner()).to.equal(gnosisSafe.address)
+        expect (await safeMinion.avatar()).to.equal(gnosisSafe.address)
+      })
+
+      it('Allows safe to change avatar', async function () {
+        const change_avatar_action = safeMinion.interface.encodeFunctionData('setAvatar', [bobAddress])
+        const multi_action = encodeMultiAction(multisend, [change_avatar_action], [safeMinion.address], [0])
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
+
+        await doProposal(true, 0, moloch)
+
+        await safeMinion.executeAction(0, multi_action)
+
+        expect (await safeMinion.avatar()).to.equal(bobAddress)
+      })
+
+      it('Allows safe to change owner', async function () {
+        const change_owner_action = safeMinion.interface.encodeFunctionData('transferOwnership', [bobAddress])
+        const multi_action = encodeMultiAction(multisend, [change_owner_action], [safeMinion.address], [0])
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
+
+        await doProposal(true, 0, moloch)
+
+        await safeMinion.executeAction(0, multi_action)
+
+        expect (await safeMinion.owner()).to.equal(bobAddress)
+      })
+
+    })
+    
     describe('Signatures', function () {
       it('Allows a member to submit a signature proposal and mark it valid through voting', async function () {
         const sign_action_1 = signMessageLib.interface.encodeFunctionData('signMessage', [arbitraryMsgHash])

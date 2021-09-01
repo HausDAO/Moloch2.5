@@ -10,8 +10,6 @@ async function main() {
     accounts.map((a) => a.address)
   )
   
-  const rinkebyMolochTemplate = '0x0f7c5Cb02cFA159056cC2ffDa45AC856715f0c1A'
-  
   const rinkebyGnosisTemplate = '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552'
   const rinkebyMultisend = '0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761'
   const rinkebyFallback = '0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4'
@@ -28,7 +26,7 @@ async function main() {
   console.log({safeMinionTemplate})
   await safeMinionTemplate.deployTransaction.wait()
   console.log('safe deployed')
-  const safeMinionSummoner = (await SafeMinionSummoner.deploy(safeMinionTemplate.address, rinkebyMolochTemplate, rinkebyGnosisTemplate, rinkebyFallback, rinkebyMultisend)) as SafeMinionSummoner
+  const safeMinionSummoner = (await SafeMinionSummoner.deploy(safeMinionTemplate.address, rinkebyGnosisTemplate, rinkebyFallback, rinkebyMultisend)) as SafeMinionSummoner
 
   // const conditionalMinionTemplate = (await ConditionalMinionTemplate.deploy()) as ConditionalMinion
   // const conditionalMinionFactory = await ConditionalMinionSummoner.deploy(conditionalMinionTemplate.address)
