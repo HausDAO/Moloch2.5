@@ -117,7 +117,6 @@ describe.only('Safe Minion Functionality', function () {
 
     safeMinionSummoner = (await SafeMinionSummoner.deploy(
       safeMinionTemplate.address,
-      molochTemplate.address,
       gnosisSafeSingleton.address,
       handler.address,
       multisend.address
