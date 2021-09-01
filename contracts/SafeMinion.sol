@@ -5,22 +5,9 @@ pragma solidity ^0.8.0;
 pragma abicoder v2;
 
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
-import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
 import "@gnosis.pm/safe-contracts/contracts/libraries/MultiSend.sol";
-
-interface IExecutor {
-    /// @dev Allows a Module to execute a transaction.
-    /// @param to Destination address of module transaction.
-    /// @param value Ether value of module transaction.
-    /// @param data Data payload of module transaction.
-    /// @param operation Operation type of module transaction.
-    function execTransactionFromModule(
-        address to,
-        uint256 value,
-        bytes calldata data,
-        Enum.Operation operation
-    ) external returns (bool success);
-}
+import "./zodiac/core/Module.sol";
+import "./zodiac/factory/ModuleProxyFactory.sol";
 
 interface IERC20 {
     // brief interface for moloch erc20 token txs
@@ -129,14 +116,11 @@ interface IMOLOCH {
         );
 }
 
-contract SafeMinion is Enum {
+contract SafeMinion is Enum, Module {
     IMOLOCH public moloch;
-    IExecutor public executor;
     address public multisend;
     address public molochDepositToken;
-    address public module;
     uint256 public minQuorum;
-    bool private initialized; // internally tracks deployment under eip-1167 proxy pattern
     mapping(uint256 => Action) public actions; // proposalId => Action
 
     // events consts
@@ -152,22 +136,17 @@ contract SafeMinion is Enum {
     string private constant ERROR_TX_FAIL = "Minion::token transfer failed";
     string private constant ERROR_NOT_PROPOSER = "Minion::not proposer";
     string private constant ERROR_MEMBER_ONLY = "Minion::not member";
-    string private constant ERROR_EXECUTOR_ONLY = "Minion::not executor";
-    string private constant ERROR_MEMBER_OR_MODULE_ONLY =
-        "Minion::not member or module";
+    string private constant ERROR_EXECUTOR_ONLY = "Minion::not avatar";
     string private constant ERROR_NOT_SPONSORED =
         "Minion::proposal not sponsored";
     string private constant ERROR_NOT_PASSED =
         "Minion::proposal has not passed";
-    string private constant ERROR_MOLOCH_CHANGED =
-        "Minion::moloch has been changed";
     string private constant ERROR_MIN_QUORUM_BOUNDS =
         "Minion::minQuorum must be 0 to 100";
     string private constant ERROR_ZERO_DEPOSIT_TOKEN =
         "Minion:zero deposit token is not allowed";
-    string private constant ERROR_MOLOCH_SHARES =
-        "Minion:moloch must have no members with shares";
     string private constant ERROR_NO_ACTION = "Minion:action does not exist";
+
     struct Action {
         bytes32 id;
         address proposer;
@@ -175,7 +154,7 @@ contract SafeMinion is Enum {
         address token;
         uint256 amount;
         address moloch;
-        bool memberOrModule; // 0 anyone , 1 memberOrModuleOnly
+        bool memberOnlyEnabled; // 0 anyone , 1 memberOnly
     }
 
     mapping(bytes32 => DAOSignature) public signatures; // msgHash => Signature
@@ -190,20 +169,14 @@ contract SafeMinion is Enum {
         address withdrawToken,
         uint256 withdrawAmount,
         address moloch,
-        bool memberOrModule,
+        bool memberOnly,
         bytes transactions
     );
     event ExecuteAction(
         bytes32 indexed id,
         uint256 indexed proposalId,
         bytes transactions,
-        address executor
-    );
-    event ExecuteEscapeHatch(
-        address target,
-        uint256 value,
-        bytes data,
-        address executor
+        address avatar
     );
 
     event DoWithdraw(address token, uint256 amount);
@@ -218,45 +191,31 @@ contract SafeMinion is Enum {
         address proposer
     );
     event SignatureCanceled(uint256 proposalId, bytes32 msgHash);
-    event ExecuteSignature(uint256 proposalId, address executor);
+    event ExecuteSignature(uint256 proposalId, address avatar);
 
-    event ChangeOwner(address owner);
-    event SetModule(address module);
 
     modifier memberOnly() {
         require(isMember(msg.sender), ERROR_MEMBER_ONLY);
         _;
     }
 
-    modifier executorOnly() {
-        require(msg.sender == address(executor), ERROR_MEMBER_ONLY);
+    modifier avatarOnly() {
+        require(msg.sender == avatar, ERROR_EXECUTOR_ONLY);
         _;
     }
 
-    modifier memberOrModuleOnly() {
-        require(
-            isMember(msg.sender) || msg.sender == module,
-            ERROR_MEMBER_OR_MODULE_ONLY
-        );
-        _;
-    }
+    function setUp(
+        bytes memory initializationParams
+    ) public override {
+        __Ownable_init();
+        (address _moloch,address _avatar,address _multisend,uint256 _minQuorum) = abi.decode(initializationParams, (address, address, address, uint256));
 
-    modifier noMemberMoloch() {
-        require(moloch.totalShares() < 1, ERROR_MOLOCH_SHARES);
-        _;
-    }
+        transferOwnership(_avatar);
 
-    function init(
-        address _moloch,
-        address _executor,
-        address _multisend,
-        uint256 _minQuorum
-    ) external {
-        require(!initialized, ERROR_INIT);
         // min quorum must be between 0% and 100%, if 0 early execution is disabled
         require(_minQuorum >= 0 && _minQuorum <= 100, ERROR_MIN_QUORUM_BOUNDS);
         moloch = IMOLOCH(_moloch);
-        executor = IExecutor(_executor);
+        avatar = _avatar;
         multisend = _multisend;
 
         minQuorum = _minQuorum;
@@ -264,7 +223,6 @@ contract SafeMinion is Enum {
         // verify that moloch address has a deposit token and it is not zero
         // require(molochDepositToken != address(0), ERROR_ZERO_DEPOSIT_TOKEN);
         initialized = true;
-        emit ChangeOwner(_moloch);
     }
 
     //  -- Moloch Withdraw Functions --
@@ -276,12 +234,7 @@ contract SafeMinion is Enum {
             amount
         );
         require(
-            executor.execTransactionFromModule(
-                address(moloch),
-                0,
-                withdrawData,
-                Operation.Call
-            ),
+            exec(address(moloch),0,withdrawData,Operation.Call),
             ERROR_CALL_FAIL
         );
         emit DoWithdraw(token, amount);
@@ -315,10 +268,10 @@ contract SafeMinion is Enum {
         address withdrawToken,
         uint256 withdrawAmount,
         string calldata details,
-        bool memberOrModule
-    ) external memberOrModuleOnly returns (uint256) {
+        bool memberOnlyEnabled
+    ) external memberOnly returns (uint256) {
         uint256 proposalId = moloch.submitProposal(
-            address(executor),
+            avatar,
             0,
             0,
             0,
@@ -333,7 +286,7 @@ contract SafeMinion is Enum {
             transactions,
             withdrawToken,
             withdrawAmount,
-            memberOrModule
+            memberOnlyEnabled
         );
 
         return proposalId;
@@ -341,7 +294,7 @@ contract SafeMinion is Enum {
 
     function deleteAction(uint256 _proposalId)
         external
-        executorOnly
+        avatarOnly
         returns (bool)
     {
         // check action exists
@@ -356,7 +309,7 @@ contract SafeMinion is Enum {
         bytes memory transactions,
         address withdrawToken,
         uint256 withdrawAmount,
-        bool memberOrModule
+        bool memberOnlyEnabled
     ) internal {
         bytes32 id = hashOperation(transactions);
         Action memory action = Action({
@@ -366,7 +319,7 @@ contract SafeMinion is Enum {
             token: withdrawToken,
             amount: withdrawAmount,
             moloch: address(moloch),
-            memberOrModule: memberOrModule
+            memberOnlyEnabled: memberOnlyEnabled
         });
         actions[proposalId] = action;
         emit ProposeNewAction(
@@ -375,7 +328,7 @@ contract SafeMinion is Enum {
             withdrawToken,
             withdrawAmount,
             address(moloch),
-            memberOrModule,
+            memberOnlyEnabled,
             transactions
         );
     }
@@ -389,16 +342,15 @@ contract SafeMinion is Enum {
         // Mark executed before doing any external stuff
         actions[proposalId].executed = true;
 
-        if (action.memberOrModule) {
+        if (action.memberOnlyEnabled) {
             require(
-                isMember(msg.sender) || msg.sender == module,
-                ERROR_MEMBER_OR_MODULE_ONLY
+                isMember(msg.sender),
+                ERROR_MEMBER_ONLY
             );
         }
 
         require(isPassed(proposalId), ERROR_REQS_NOT_MET);
         require(action.id != 0, ERROR_DELETED);
-        require(action.moloch == address(moloch), ERROR_MOLOCH_CHANGED);
 
         bytes32 id = hashOperation(transactions);
 
@@ -406,22 +358,17 @@ contract SafeMinion is Enum {
 
         if (
             action.amount > 0 &&
-            moloch.getUserTokenBalance(address(executor), action.token) > 0
+            moloch.getUserTokenBalance(avatar, action.token) > 0
         ) {
             // withdraw token tribute if any
             doWithdraw(
                 action.token,
-                moloch.getUserTokenBalance(address(executor), action.token)
+                moloch.getUserTokenBalance(avatar, action.token)
             );
         }
 
         require(
-            executor.execTransactionFromModule(
-                multisend,
-                0, // todo pull value?
-                transactions,
-                Operation.DelegateCall
-            ),
+            exec(multisend,0,transactions,Operation.DelegateCall),
             ERROR_CALL_FAIL
         );
 
@@ -440,23 +387,6 @@ contract SafeMinion is Enum {
         moloch.cancelProposal(_proposalId);
     }
 
-    // -- Admin Functions --
-    function changeOwner(address _moloch) external executorOnly returns (bool) {
-        // TODO: withdraw any funds from dao first? may need to verify this on the front end
-        moloch = IMOLOCH(_moloch);
-        molochDepositToken = moloch.depositToken();
-        // verify that moloch address has a deposit token and it is not zero
-        require(molochDepositToken != address(0), ERROR_ZERO_DEPOSIT_TOKEN);
-        emit ChangeOwner(_moloch);
-        return true;
-    }
-
-    function setModule(address _module) external executorOnly returns (bool) {
-        module = _module;
-        emit SetModule(_module);
-        return true;
-    }
-
     //  -- Helper Functions --
     function isPassed(uint256 _proposalId) internal returns (bool) {
         uint256 totalShares = moloch.totalShares();
@@ -466,11 +396,6 @@ contract SafeMinion is Enum {
         // if any of these branches are true, let action proceed before proposal is processed
         if (flags[2]) {
             // if proposal has passed dao return true
-            return true;
-        }
-
-        if (module != address(0) && msg.sender == module) {
-            // if module is set, proposal is sposored and sender is module
             return true;
         }
 
@@ -506,30 +431,7 @@ contract SafeMinion is Enum {
     receive() external payable {}
 }
 
-contract CloneFactory {
-    function createClone(address payable target)
-        internal
-        returns (address payable result)
-    {
-        // eip-1167 proxy pattern adapted for payable minion
-        bytes20 targetBytes = bytes20(address(target));
-        assembly {
-            let clone := mload(0x40)
-            mstore(
-                clone,
-                0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000
-            )
-            mstore(add(clone, 0x14), targetBytes)
-            mstore(
-                add(clone, 0x28),
-                0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000
-            )
-            result := create(0, clone, 0x37)
-        }
-    }
-}
-
-contract SafeMinionSummoner is CloneFactory {
+contract SafeMinionSummoner is ModuleProxyFactory {
     address payable public immutable template; // fixed template for minion using eip-1167 proxy pattern
     address public gnosisSingleton;
     address public gnosisFallback;
@@ -556,26 +458,33 @@ contract SafeMinionSummoner is CloneFactory {
     constructor(
         address payable _template,
         address _molochTemplate,
-        address _executorTemplate,
+        address _avatarTemplate,
         address _gnosisFallback,
         address _gnosisMultisend
     ) {
         template = _template;
-        gnosisSingleton = _executorTemplate;
+        gnosisSingleton = _avatarTemplate;
         gnosisFallback = _gnosisFallback;
         gnosisMultisend = _gnosisMultisend;
         SafeMinion minion = SafeMinion(_template);
-        minion.init(_molochTemplate, _executorTemplate, _gnosisMultisend, 0);
+        minion.setUp(abi.encode(_molochTemplate, _avatarTemplate, _gnosisMultisend, 0));
     }
 
     function summonMinion(
         address moloch,
-        address executor,
+        address avatar,
         string memory details,
-        uint256 minQuorum
+        uint256 minQuorum,
+        uint256 saltNonce
     ) external returns (address) {
-        SafeMinion minion = SafeMinion(createClone(template));
-        minion.init(moloch, executor, gnosisMultisend, minQuorum);
+        bytes memory initializer = abi.encode(moloch, avatar, gnosisMultisend, minQuorum);
+
+        bytes memory initializerCall = abi.encodeWithSignature(
+            "setUp(bytes)",
+            initializer
+        );
+
+        SafeMinion minion = SafeMinion(payable(deployModule(template, initializerCall, saltNonce)));
 
         minions[address(minion)] = AMinion(moloch, details);
         minionList.push(address(minion));
@@ -583,7 +492,7 @@ contract SafeMinionSummoner is CloneFactory {
         emit SummonMinion(
             address(minion),
             moloch,
-            executor,
+            avatar,
             details,
             minionType,
             minQuorum
@@ -595,17 +504,18 @@ contract SafeMinionSummoner is CloneFactory {
     function summonMinionAndSafe(
         address moloch,
         string memory details,
-        uint256 minQuorum
+        uint256 minQuorum,
+        bytes32 salt
     ) external returns (address) {
         // Deploy new minion
-        SafeMinion minion = SafeMinion(createClone(template));
+        SafeMinion minion = SafeMinion(payable(createProxy(template, salt)));
 
         // Workaround for solidity dynamic memory array
         address[] memory owners = new address[](1);
         owners[0] = address(minion);
 
         // Deploy new safe
-        GnosisSafeProxy proxy = new GnosisSafeProxy(gnosisSingleton);
+        address proxy = createProxy(gnosisSingleton, salt);
         GnosisSafe safe = GnosisSafe(payable(address(proxy)));
 
         // Configure Safe START
@@ -617,7 +527,7 @@ contract SafeMinionSummoner is CloneFactory {
         // Encode minion enable to be called by the multisend contract via delegate call
         bytes memory enableMinionMultisend = abi.encodePacked(
             uint8(0),
-            address(proxy),
+            proxy,
             uint256(0),
             uint256(enableMinion.length),
             bytes(enableMinion)
@@ -639,7 +549,8 @@ contract SafeMinionSummoner is CloneFactory {
         );
         // Configure Safe END
 
-        minion.init(moloch, address(proxy), gnosisMultisend, minQuorum);
+
+        minion.setUp(abi.encode(moloch, proxy, gnosisMultisend, minQuorum));
 
         minions[address(minion)] = AMinion(moloch, details);
         minionList.push(address(minion));
@@ -647,7 +558,7 @@ contract SafeMinionSummoner is CloneFactory {
         emit SummonMinion(
             address(minion),
             moloch,
-            address(proxy),
+            proxy,
             details,
             minionType,
             minQuorum

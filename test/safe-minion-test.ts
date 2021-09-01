@@ -1,5 +1,6 @@
 import { ethers } from 'hardhat'
 import { solidity } from 'ethereum-waffle'
+import { randomBytes } from 'crypto'
 import { Contract, ContractFactory, BigNumberish, Wallet } from 'ethers'
 import { use, expect } from 'chai'
 import { AnyErc20 } from '../src/types/AnyErc20'
@@ -16,6 +17,11 @@ import { SignMessageLib } from '../src/types/SignMessageLib'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { doProposal, encodeMultiAction, fastForwardBlocks } from './util'
 import { encodeMultiSend, executeContractCallWithSigners, MetaTransaction } from '@gnosis.pm/safe-contracts'
+
+const generateNonce = async () => {
+  const buffer = await randomBytes(32)
+  return buffer.toString('hex')
+}
 
 use(solidity)
 
@@ -146,12 +152,14 @@ describe.only('Safe Minion Functionality', function () {
       await moloch.collectTokens(anyErc20.address)
 
       minQuorum = 20
+      
+      const salt = await generateNonce()
 
-      await safeMinionSummoner.summonMinionAndSafe(moloch.address, '', minQuorum)
+      await safeMinionSummoner.summonMinionAndSafe(moloch.address, '', minQuorum, "0x" + salt)
       const newMinionCount = (await safeMinionSummoner.minionCount()).toNumber()
       const newMinionAddress = await safeMinionSummoner.minionList(newMinionCount - 1)
       safeMinion = (await SafeMinion.attach(newMinionAddress)) as SafeMinion
-      const gnosisSafeAddress = await safeMinion.executor()
+      const gnosisSafeAddress = await safeMinion.avatar()
       await anyErc20.mint(gnosisSafeAddress, 500)
       gnosisSafe = (await GnosisSafe.attach(gnosisSafeAddress)) as GnosisSafe
     })
@@ -195,7 +203,7 @@ describe.only('Safe Minion Functionality', function () {
       it('Enables multiple modules to be activated on setup', async function () {
         const proxy = await GnosisSafeProxy.deploy(gnosisSafeSingleton.address)
         gnosisSafe = (await GnosisSafe.attach(proxy.address)) as GnosisSafe
-        await safeMinionSummoner.summonMinion(moloch.address, gnosisSafe.address, '', minQuorum)
+        await safeMinionSummoner.summonMinion(moloch.address, gnosisSafe.address, '', minQuorum, 100)
         const newMinionCount = (await safeMinionSummoner.minionCount()).toNumber()
         const newMinionAddress = await safeMinionSummoner.minionList(newMinionCount - 1)
         safeMinion = (await SafeMinion.attach(newMinionAddress)) as SafeMinion

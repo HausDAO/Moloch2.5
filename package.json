@@ -38,6 +38,7 @@
     "account": "hardhat account"
   },
   "dependencies": {
-    "@gnosis.pm/safe-contracts": "^1.3.0"
+    "@gnosis.pm/safe-contracts": "^1.3.0",
+    "@openzeppelin/contracts-upgradeable": "^4.3.1"
   }
 }
