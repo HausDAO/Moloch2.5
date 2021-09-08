@@ -1,6 +1,15 @@
 # MinionSummoner
 Summon All the Minions
 
+## Safe Minion Deployments
+
+Polygon: https://polygonscan.com/address/0xbC37509A283E2bb67fd151c34E72e826C501E108#writeContract
+
+Rinkeby: https://rinkeby.etherscan.io/address/0xbc37509a283e2bb67fd151c34e72e826c501e108
+
+XDai: https://blockscout.com/xdai/mainnet/address/0xbC37509A283E2bb67fd151c34E72e826C501E108/transactions
+
+Mainnet: coming soon
 
 ## Documetation is still WIP
 
