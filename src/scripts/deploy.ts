@@ -1,6 +1,7 @@
 import { ethers } from 'hardhat'
 import { SafeMinion } from '../types/SafeMinion'
 import { SafeMinionSummoner } from '../types/SafeMinionSummoner'
+import { kovan, polygon, rinkeby, xdai } from '../util/contractAddresses'
 
 async function main() {
   const accounts = await ethers.getSigners()
@@ -10,10 +11,11 @@ async function main() {
     accounts.map((a) => a.address)
   )
   
-  const rinkebyGnosisTemplate = '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552'
-  const rinkebyMultisend = '0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761'
-  const rinkebyFallback = '0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4'
-
+  // const contractAddresses = polygon
+  // const contractAddresses = mainnet
+  const contractAddresses = kovan
+  // const contractAddresses = polygon
+  
   const SafeMinion = await ethers.getContractFactory('SafeMinion')
   const SafeMinionSummoner = await ethers.getContractFactory('SafeMinionSummoner')
   // const ConditionalMinionTemplate = await ethers.getContractFactory('ConditionalMinion')
@@ -26,7 +28,7 @@ async function main() {
   console.log({safeMinionTemplate})
   await safeMinionTemplate.deployTransaction.wait()
   console.log('safe deployed')
-  const safeMinionSummoner = (await SafeMinionSummoner.deploy(safeMinionTemplate.address, rinkebyGnosisTemplate, rinkebyFallback, rinkebyMultisend)) as SafeMinionSummoner
+  const safeMinionSummoner = (await SafeMinionSummoner.deploy(safeMinionTemplate.address, contractAddresses.gnosisSingleton, contractAddresses.gnosisFallback, contractAddresses.gnosisMultisend)) as SafeMinionSummoner
 
   // const conditionalMinionTemplate = (await ConditionalMinionTemplate.deploy()) as ConditionalMinion
   // const conditionalMinionFactory = await ConditionalMinionSummoner.deploy(conditionalMinionTemplate.address)

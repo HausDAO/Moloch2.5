@@ -15,7 +15,7 @@ import { CompatibilityFallbackHandler } from '../src/types/CompatibilityFallback
 import { MultiSend } from '../src/types/MultiSend'
 import { SignMessageLib } from '../src/types/SignMessageLib'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
-import { doProposal, encodeMultiAction, fastForwardBlocks } from './util'
+import { decodeMultiAction, doProposal, encodeMultiAction, fastForwardBlocks } from './util'
 import { encodeMultiSend, executeContractCallWithSigners, MetaTransaction } from '@gnosis.pm/safe-contracts'
 
 const generateNonce = async () => {
@@ -314,6 +314,29 @@ describe.only('Safe Minion Functionality', function () {
 
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(30)
         expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(470)
+      })
+      
+      it('Decodes multisend into actions', async function() {
+          const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
+          const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
+          console.log(anyErc20.address)
+          console.log(aliceAddress)
+
+          const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address], [0, 0])
+          console.log({multi_action})
+          const decoded = decodeMultiAction(multisend, multi_action)
+          
+          expect(decoded.length).to.equal(2)
+          expect(decoded[0].to.toLowerCase()).to.equal(anyErc20.address.toLowerCase())
+          expect(decoded[1].to.toLowerCase()).to.equal(anyErc20.address.toLowerCase())
+          expect(decoded[0].data).to.equal(action_1)
+          expect(decoded[1].data).to.equal(action_2)
+          expect(decoded[0].operation).to.equal(0)
+          expect(decoded[1].operation).to.equal(0)
+          
+          const decodedData = await anyErc20.interface.decodeFunctionData('transfer', decoded[0].data)
+          console.log({decodedData})
+
       })
 
       it('Enables a proposal to delete a previous action', async function () {
