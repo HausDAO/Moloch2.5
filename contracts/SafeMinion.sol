@@ -408,6 +408,18 @@ contract SafeMinion is Enum, Module {
         emit ActionDeleted(_proposalId);
         return true;
     }
+    
+    /// @dev Function to Execute arbitrary code as the minion - useful if funds are accidentally sent here
+    /// @notice Can only be called by the avatar which means this can only be called if passed by another
+    ///     proposal or by a delegated signer on the Safe
+    ///     Makes it so the action can not be executed
+    /// @param _to address to call
+    /// @param _value value to include in wei
+    /// @param _data arbitrary transaction data
+    function executeAsMinion(address _to, uint256 _value, bytes calldata _data) external avatarOnly {
+        (bool success,) = _to.call{value: _value}(_data);
+        require(success, "call failure");
+    }
 
     /// @dev Function to execute an action if the proposal has passed or quorum has been met
     ///     Can be restricted to only members if specified in proposal
@@ -471,10 +483,6 @@ contract SafeMinion is Enum, Module {
         moloch.cancelProposal(_proposalId);
         emit ActionCanceled(_proposalId);
     }
-
-    /// @dev Receive any ETH sent to this contract
-    fallback() external payable {}
-    receive() external payable {}
 }
 
 /// @title SafeMinionSummoner - Factory contract to depoy new Minions and Safes

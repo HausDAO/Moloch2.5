@@ -299,6 +299,15 @@ describe.only('Safe Minion Functionality', function () {
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(10)
       })
     })
+    
+    describe('Fallback', function() {
+      it.only('reverts if ETH is sent to this contract', async function () {
+        expect(bob.sendTransaction({to: safeMinion.address, value: 100})).to.be.reverted
+        expect(bob.sendTransaction({to: safeMinion.address, value: 100, data: '0x1'})).to.be.reverted
+      })
+
+    })
+    
     describe('Multisend', function () {
       it('Enables 2 actions to be associated with one proposal', async function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
