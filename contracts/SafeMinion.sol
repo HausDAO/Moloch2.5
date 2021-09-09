@@ -182,6 +182,7 @@ contract SafeMinion is Enum, Module {
     string private constant ERROR_ZERO_DEPOSIT_TOKEN =
         "Minion:zero deposit token is not allowed";
     string private constant ERROR_NO_ACTION = "Minion:action does not exist";
+    string private constant ERROR_NOT_WL = "Minion:token is not whitelisted";
 
     event ProposeNewAction(
         bytes32 indexed id,
@@ -202,6 +203,7 @@ contract SafeMinion is Enum, Module {
     event DoWithdraw(address token, uint256 amount);
     event ActionCanceled(uint256 proposalId);
     event ActionDeleted(uint256 proposalId);
+    event CrossWithdraw(address target, address token, uint256 amount);
 
     modifier memberOnly() {
         require(isMember(msg.sender), ERROR_MEMBER_ONLY);
@@ -277,6 +279,41 @@ contract SafeMinion is Enum, Module {
             ERROR_CALL_FAIL
         );
         emit DoWithdraw(_token, _amount);
+    }
+
+    /// @dev Member accessible interface to withdraw funds from another Moloch directly to Safe or to the DAO
+    /// @notice Can only be called by member of Moloch
+    /// @param _target MOLOCH address to withdraw from
+    /// @param _token ERC20 address of token to withdraw
+    /// @param _amount ERC20 token amount to withdraw
+    function crossWithdraw(address _target, address _token, uint256 _amount, bool _transfer) external memberOnly {
+        // Construct transaction data for safe to execute
+        bytes memory withdrawData = abi.encodeWithSelector(
+            IMOLOCH(_target).withdrawBalance.selector,
+            _token,
+            _amount
+        );            
+        require(
+            exec(_target, 0, withdrawData, Operation.Call),
+            ERROR_CALL_FAIL
+        );
+
+        // Transfers token into DAO. 
+        if(_transfer) {
+            bool whitelisted = moloch.tokenWhitelist(_token);
+            require(whitelisted, ERROR_NOT_WL);
+            bytes memory transferData = abi.encodeWithSelector(
+                IERC20(_token).transfer.selector,
+                address(moloch),
+                _amount
+            );
+            require(
+                exec(_token, 0, transferData, Operation.Call),
+                ERROR_CALL_FAIL
+            );
+        }
+        
+        emit CrossWithdraw(_target, _token, _amount);
     }
 
     /// @dev Internal utility function to store hash of transaction data to ensure executed action is the same as proposed action
