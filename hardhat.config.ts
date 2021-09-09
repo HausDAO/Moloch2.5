@@ -80,7 +80,8 @@ const config: HardhatUserConfig = {
       },
     },
     matic: {
-      url: 'https://rpc-mainnet.maticvigil.com/v1/036f1ba8516f0eee2204a574a960b68437ac8661',
+      // url: 'https://rpc-mainnet.maticvigil.com/v1/036f1ba8516f0eee2204a574a960b68437ac8661',
+      url: 'https://polygon-mainnet.infura.io/v3/cc7ca25d68f246f393d7630842360c47',
       gasPrice: 1000000000,
       accounts: {
         mnemonic: mnemonic(),
@@ -97,7 +98,8 @@ const config: HardhatUserConfig = {
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
-    apiKey: "61ED96HQAY6PASTEWRXN6AMYQEKM8SYTRY"
+    apiKey: "61ED96HQAY6PASTEWRXN6AMYQEKM8SYTRY" // etherscan
+    // apiKey: "9QW4RIZ2EPRSYMPN54FQ4EZIMUX2G9AJPW"// polygon scan
   },
   solidity: {
     compilers: [
