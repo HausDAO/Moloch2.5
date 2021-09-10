@@ -8,6 +8,7 @@ import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "@gnosis.pm/safe-contracts/contracts/libraries/MultiSend.sol";
 import "./zodiac/core/Module.sol";
 import "./zodiac/factory/ModuleProxyFactory.sol";
+import "hardhat/console.sol";
 
 interface IERC20 {
     // brief interface for moloch erc20 token txs
@@ -206,7 +207,9 @@ contract SafeMinion is Enum, Module {
     event CrossWithdraw(address target, address token, uint256 amount);
 
     modifier memberOnly() {
+        console.log('sender %s', msg.sender);
         require(isMember(msg.sender), ERROR_MEMBER_ONLY);
+        console.log('is member');
         _;
     }
 
@@ -379,6 +382,7 @@ contract SafeMinion is Enum, Module {
         // member only check should check if member or delegate
         address _memberAddress = moloch.memberAddressByDelegateKey(_user);
         (, uint256 _shares, , , , ) = moloch.members(_memberAddress);
+        console.log('shares %s', _shares);
         return _shares > 0;
     }
 
@@ -449,7 +453,6 @@ contract SafeMinion is Enum, Module {
     /// @dev Function to Execute arbitrary code as the minion - useful if funds are accidentally sent here
     /// @notice Can only be called by the avatar which means this can only be called if passed by another
     ///     proposal or by a delegated signer on the Safe
-    ///     Makes it so the action can not be executed
     /// @param _to address to call
     /// @param _value value to include in wei
     /// @param _data arbitrary transaction data
