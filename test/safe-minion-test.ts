@@ -43,6 +43,8 @@ describe.only('Safe Minion Functionality', function () {
   let SafeMinion: ContractFactory
   let safeMinion: SafeMinion
   let safeMinionTemplate: SafeMinion
+  
+  let safeMinionAsBob: SafeMinion
 
   let SafeMinionSummoner: ContractFactory
   let safeMinionSummoner: SafeMinionSummoner
@@ -158,6 +160,7 @@ describe.only('Safe Minion Functionality', function () {
       const newMinionCount = (await safeMinionSummoner.minionCount()).toNumber()
       const newMinionAddress = await safeMinionSummoner.minionList(newMinionCount - 1)
       safeMinion = (await SafeMinion.attach(newMinionAddress)) as SafeMinion
+      safeMinionAsBob = await safeMinion.connect(bob)
       const gnosisSafeAddress = await safeMinion.avatar()
       await anyErc20.mint(gnosisSafeAddress, 500)
       gnosisSafe = (await GnosisSafe.attach(gnosisSafeAddress)) as GnosisSafe
@@ -418,15 +421,44 @@ describe.only('Safe Minion Functionality', function () {
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(30)
         expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(470)
       })
+
+      it('only allows member to execute if enabled', async function () {
+        const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
+        const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
+
+        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address], [0, 0])
+
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', true)
+
+        await doProposal(true, 0, moloch)
+
+        expect(safeMinionAsBob.executeAction(0, multi_action)).to.be.revertedWith('Minion::not member')
+
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(500)
+      })
+
+      it('allows anyone to execute if member only not enabled', async function () {
+        const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
+        const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
+
+        const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address], [0, 0])
+
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
+
+        await doProposal(true, 0, moloch)
+
+        await safeMinionAsBob.executeAction(0, multi_action)
+
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(30)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(470)
+      })
       
       it('Decodes multisend into actions', async function() {
           const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
           const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
-          console.log(anyErc20.address)
-          console.log(aliceAddress)
 
           const multi_action = encodeMultiAction(multisend, [action_1, action_2], [anyErc20.address, anyErc20.address], [0, 0])
-          console.log({multi_action})
           const decoded = decodeMultiAction(multisend, multi_action)
           
           expect(decoded.length).to.equal(2)
@@ -438,7 +470,6 @@ describe.only('Safe Minion Functionality', function () {
           expect(decoded[1].operation).to.equal(0)
           
           const decodedData = await anyErc20.interface.decodeFunctionData('transfer', decoded[0].data)
-          console.log({decodedData})
 
       })
 
