@@ -25,7 +25,7 @@ const generateNonce = async () => {
 
 use(solidity)
 
-describe.only('Safe Minion Functionality', function () {
+describe('Safe Minion Functionality', function () {
   let Moloch: ContractFactory
   let moloch: Moloch
 
@@ -278,6 +278,100 @@ describe.only('Safe Minion Functionality', function () {
       })
     })
 
+    describe('Cross withdraw from another Moloch to this minion', function () {
+      let otherMoloch: Moloch
+      let otherErc20 : AnyErc20
+      this.beforeEach(async function() {
+        otherMoloch = (await Moloch.deploy()) as Moloch
+        otherErc20 = (await AnyERC20.deploy()) as AnyErc20
+        await otherMoloch.init([deployerAddress], [anyErc20.address, otherErc20.address], 5, 5, 1, 0, 3, 0, [100])
+        await anyErc20.mint(otherMoloch.address, 100)
+        await otherErc20.mint(otherMoloch.address, 100)
+        await otherMoloch.collectTokens(anyErc20.address)
+        await otherMoloch.collectTokens(otherErc20.address)
+      })
+      it('Enables a Minion to withdraw Moloch funds into a safe', async function () {
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(500)
+        await otherMoloch.submitProposal(gnosisSafe.address, 0, 0, 0, anyErc20.address, 10, anyErc20.address, '')
+        await doProposal(true, 0, otherMoloch)
+        expect(await otherMoloch.userTokenBalances(gnosisSafe.address, anyErc20.address)).to.equal(10)
+
+        await safeMinion.crossWithdraw(otherMoloch.address, anyErc20.address, 5, false)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(505)
+      })
+
+      it('Enables a Minion to withdraw Moloch funds into Moloch if token is whitelisted', async function () {
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(500)
+        expect(await anyErc20.balanceOf(moloch.address)).to.equal(10000)
+        await otherMoloch.submitProposal(gnosisSafe.address, 0, 0, 0, anyErc20.address, 10, anyErc20.address, '')
+        await doProposal(true, 0, otherMoloch)
+
+        await safeMinion.crossWithdraw(otherMoloch.address, anyErc20.address, 5, true)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(500)
+        expect(await anyErc20.balanceOf(moloch.address)).to.equal(10005)
+      })
+
+      it('Fails if token not whitelisted by recipient moloch', async function () {
+        expect(await otherErc20.balanceOf(gnosisSafe.address)).to.equal(0)
+        expect(await otherErc20.balanceOf(moloch.address)).to.equal(0)
+        await otherMoloch.submitProposal(gnosisSafe.address, 0, 0, 0, anyErc20.address, 10, otherErc20.address, '')
+        await doProposal(true, 0, otherMoloch)
+
+        expect(safeMinion.crossWithdraw(otherMoloch.address, otherErc20.address, 5, true)).to.be.revertedWith('Minion:token is not whitelisted')
+        expect(await otherErc20.balanceOf(gnosisSafe.address)).to.equal(0)
+        expect(await otherErc20.balanceOf(moloch.address)).to.equal(0)
+      })
+    })
+    
+    describe('Execute as Minion', function () {
+      this.beforeEach(async function() {
+        await anyErc20.mint(safeMinion.address, 100)
+      })
+      it('Enables the Safe to rescue tokens sent to the minion', async function () {
+        expect(await anyErc20.balanceOf(safeMinion.address)).to.equal(100)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(500)
+        const minionAction = anyErc20.interface.encodeFunctionData('transfer', [gnosisSafe.address, 100])
+        const action_1 = safeMinion.interface.encodeFunctionData('executeAsMinion', [anyErc20.address, 0, minionAction])
+
+        const multi_action = encodeMultiAction(multisend, [action_1], [safeMinion.address], [0])
+
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
+
+        await doProposal(true, 0, moloch)
+
+        await safeMinion.executeAction(0, multi_action)
+
+        expect(await anyErc20.balanceOf(safeMinion.address)).to.equal(0)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(600)
+        
+      })
+
+      it('Reverts if external call reverts', async function () {
+        expect(await anyErc20.balanceOf(safeMinion.address)).to.equal(100)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(500)
+        const minionAction = anyErc20.interface.encodeFunctionData('transfer', [gnosisSafe.address, 150])
+        const action_1 = safeMinion.interface.encodeFunctionData('executeAsMinion', [anyErc20.address, 0, minionAction])
+
+        const multi_action = encodeMultiAction(multisend, [action_1], [safeMinion.address], [0])
+
+        await safeMinion.proposeAction(multi_action, anyErc20.address, 0, 'test', false)
+
+        await doProposal(true, 0, moloch)
+
+        expect(safeMinion.executeAction(0, multi_action)).to.be.revertedWith('Minion::call failure')
+
+        expect(await anyErc20.balanceOf(safeMinion.address)).to.equal(100)
+        expect(await anyErc20.balanceOf(gnosisSafe.address)).to.equal(500)
+
+      })
+      
+      it('Does not allow anyone else to call exec as minion', async function() {
+        const minionAction = anyErc20.interface.encodeFunctionData('transfer', [safeMinion.address, 100])
+        expect(safeMinion.executeAsMinion(anyErc20.address, 0, minionAction)).to.be.revertedWith('Minion::not avatar')
+
+      })
+    })
+
     describe('Safe withdraw from Moloch', function () {
       it('Enables a Minion to withdraw Moloch funds into a safe', async function () {
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
@@ -299,6 +393,15 @@ describe.only('Safe Minion Functionality', function () {
         expect(await anyErc20.balanceOf(aliceAddress)).to.equal(10)
       })
     })
+    
+    describe('Fallback', function() {
+      it('reverts if ETH is sent to this contract', async function () {
+        expect(bob.sendTransaction({to: safeMinion.address, value: 100})).to.be.reverted
+        expect(bob.sendTransaction({to: safeMinion.address, value: 100, data: '0x1'})).to.be.reverted
+      })
+
+    })
+    
     describe('Multisend', function () {
       it('Enables 2 actions to be associated with one proposal', async function () {
         const action_1 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
