@@ -25,7 +25,7 @@ const generateNonce = async () => {
 
 use(solidity)
 
-describe('Safe Minion Functionality', function () {
+describe.only('Safe Minion Functionality', function () {
   let Moloch: ContractFactory
   let moloch: Moloch
 
