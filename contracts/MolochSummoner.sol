@@ -1,6 +1,6 @@
 // Based on https://github.com/HausDAO/Molochv2.1
 
-pragma solidity 0.5.3;
+pragma solidity 0.6.1;
 
 /**
  * @dev Contract module that helps prevent reentrant calls to a function.
@@ -131,6 +131,12 @@ contract Moloch is ReentrancyGuard {
 
     address public depositToken; // deposit token contract reference; default = wETH
 
+    uint256 public spamPrevention;
+    address public spamPreventionAddr;
+
+    // can have multiple shamans
+    mapping(address => bool) public shamans;
+
     // HARD-CODED LIMITS
     // These numbers are quite arbitrary; they are small enough to avoid overflows when doing calculations
     // with periods or shares, yet big enough to not limit reasonable use cases.
@@ -156,6 +162,18 @@ contract Moloch is ReentrancyGuard {
     event CancelProposal(uint256 indexed proposalId, address applicantAddress);
     event UpdateDelegateKey(address indexed memberAddress, address newDelegateKey);
     event Withdraw(address indexed memberAddress, address token, uint256 amount);
+
+    event Shaman(
+        address indexed memberAddress,
+        uint256 shares,
+        uint256 loot,
+        bool mint
+    );
+    event SpamPrevention(
+        address _spamPreventionAddr,
+        uint256 _spamPrevention
+    );
+    event SetShaman(address indexed shaman, bool isMinion);
 
     // *******************
     // INTERNAL ACCOUNTING
@@ -235,19 +253,129 @@ contract Moloch is ReentrancyGuard {
         _;
     }
 
+    modifier onlyDelegateOrShaman() {
+        require(
+            members[memberAddressByDelegateKey[msg.sender]].shares > 0 ||
+                shamans[msg.sender],
+            "!delegate || !shaman"
+        );
+        _;
+    }
+
+    modifier onlyShaman() {
+        require(shamans[msg.sender], "!shaman");
+        _;
+    }
+
+    function setShaman(address _shaman, bool _enable) public onlyShaman {
+        shamans[_shaman] = _enable;
+        emit SetShaman(_shaman, _enable);
+    }
+
+    function setConfig(
+        address _spamPreventionAddr,
+        uint256 _spamPrevention
+    ) public onlyShaman {
+        // could brick a dao if this is set too high and only the minion can change
+        require(_spamPrevention < 1000000000000000000, "fee too high");
+        spamPreventionAddr = _spamPreventionAddr;
+        spamPrevention = _spamPrevention;
+
+        emit SpamPrevention(
+            _spamPreventionAddr,
+            _spamPrevention
+        );
+    }
+
+    // allow member to do this if no active props
+    function setSharesLoot(
+        address[] memory _summoners,
+        uint256[] memory _summonerShares,
+        uint256[] memory _summonerLoot,
+        bool mint
+    ) public onlyShaman {
+        require(_summoners.length == _summonerShares.length, "mismatch");
+        require(_summoners.length == _summonerLoot.length, "mismatch");
+        for (uint256 i = 0; i < _summoners.length; i++) {
+            _setSharesLoot(
+                _summoners[i],
+                _summonerShares[i],
+                _summonerLoot[i],
+                mint
+            );
+            emit Shaman(
+                _summoners[i],
+                _summonerShares[i],
+                _summonerLoot[i],
+                mint
+            );
+        }
+    }
+
+    function _setSharesLoot(
+        address applicant,
+        uint256 shares,
+        uint256 loot,
+        bool mint
+    ) internal {
+        if (mint) {
+            if (members[applicant].exists) {
+                members[applicant].shares = members[applicant].shares.add(
+                    shares
+                );
+                members[applicant].loot = members[applicant].loot.add(loot);
+
+                // the applicant is a new member, create a new record for them
+            } else {
+                // if the applicant address is already taken by a member's delegateKey, reset it to their member address
+                if (members[memberAddressByDelegateKey[applicant]].exists) {
+                    address memberToOverride = memberAddressByDelegateKey[
+                        applicant
+                    ];
+                    memberAddressByDelegateKey[
+                        memberToOverride
+                    ] = memberToOverride;
+                    members[memberToOverride].delegateKey = memberToOverride;
+                }
+
+                // use applicant address as delegateKey by default
+                members[applicant] = Member(
+                    applicant,
+                    shares,
+                    loot,
+                    true,
+                    0,
+                    0
+                );
+                memberAddressByDelegateKey[applicant] = applicant;
+            }
+            totalShares = totalShares.add(shares);
+            totalLoot = totalLoot.add(loot);
+        } else {
+            members[applicant].shares = members[applicant].shares.sub(shares);
+            members[applicant].loot = members[applicant].loot.sub(loot);
+            totalShares = totalShares.sub(shares);
+            totalLoot = totalLoot.sub(loot);
+        }
+        require(
+            totalShares.add(shares).add(loot) <= MAX_NUMBER_OF_SHARES_AND_LOOT,
+            "too many shares requested"
+        );
+    }
+
+
     function init(
-        address[] calldata _summoner,
+        address _summoner,
+        address _shaman,
         address[] calldata _approvedTokens,
         uint256 _periodDuration,
         uint256 _votingPeriodLength,
         uint256 _gracePeriodLength,
         uint256 _proposalDeposit,
         uint256 _dilutionBound,
-        uint256 _processingReward,
-        uint256[] calldata _summonerShares
+        uint256 _processingReward
     ) external {
         require(!initialized, "initialized");
-        require(_summoner.length == _summonerShares.length, "summoner length mismatches summonerShares");
         require(_periodDuration > 0, "_periodDuration cannot be 0");
         require(_votingPeriodLength > 0, "_votingPeriodLength cannot be 0");
         require(_votingPeriodLength <= MAX_VOTING_PERIOD_LENGTH, "_votingPeriodLength exceeds limit");
@@ -259,13 +387,15 @@ contract Moloch is ReentrancyGuard {
         require(_proposalDeposit >= _processingReward, "_proposalDeposit cannot be smaller than _processingReward");
         
         depositToken = _approvedTokens[0];
+
+        shamans[_shaman] = true;
       
-        for (uint256 i = 0; i < _summoner.length; i++) {
-            require(_summoner[i] != address(0), "summoner cannot be 0");
-            members[_summoner[i]] = Member(_summoner[i], _summonerShares[i], 0, true, 0, 0);
-            memberAddressByDelegateKey[_summoner[i]] = _summoner[i];
-            totalShares = totalShares.add(_summonerShares[i]);
-        }
+
+        require(_summoner != address(0), "summoner cannot be 0");
+        members[_summoner] = Member(_summoner, 1, 0, true, 0, 0);
+        memberAddressByDelegateKey[_summoner] = _summoner;
+        totalShares = totalShares.add(1);
+
         
         require(totalShares <= MAX_NUMBER_OF_SHARES_AND_LOOT, "too many shares requested");
 
@@ -356,6 +486,11 @@ contract Moloch is ReentrancyGuard {
         string memory details,
         bool[6] memory flags
     ) internal {
+        require(msg.value > spamPrevention, "spam prevention on");
+        if (spamPrevention > 0) {
+            (bool success, ) = spamPreventionAddr.call.value(msg.value)("");
+            require(success, "failed");
+        }
         Proposal memory proposal = Proposal({
             applicant : applicant,
             proposer : msg.sender,
@@ -499,28 +634,12 @@ contract Moloch is ReentrancyGuard {
         if (didPass) {
             proposal.flags[2] = true; // didPass
 
-            // if the applicant is already a member, add to their existing shares & loot
-            if (members[proposal.applicant].exists) {
-                members[proposal.applicant].shares = members[proposal.applicant].shares.add(proposal.sharesRequested);
-                members[proposal.applicant].loot = members[proposal.applicant].loot.add(proposal.lootRequested);
-
-            // the applicant is a new member, create a new record for them
-            } else {
-                // if the applicant address is already taken by a member's delegateKey, reset it to their member address
-                if (members[memberAddressByDelegateKey[proposal.applicant]].exists) {
-                    address memberToOverride = memberAddressByDelegateKey[proposal.applicant];
-                    memberAddressByDelegateKey[memberToOverride] = memberToOverride;
-                    members[memberToOverride].delegateKey = memberToOverride;
-                }
-
-                // use applicant address as delegateKey by default
-                members[proposal.applicant] = Member(proposal.applicant, proposal.sharesRequested, proposal.lootRequested, true, 0, 0);
-                memberAddressByDelegateKey[proposal.applicant] = proposal.applicant;
-            }
-
-            // mint new shares & loot
-            totalShares = totalShares.add(proposal.sharesRequested);
-            totalLoot = totalLoot.add(proposal.lootRequested);
+           _setSharesLoot(
+                proposal.applicant,
+                proposal.sharesRequested,
+                proposal.lootRequested,
+                true
+            );
 
             // if the proposal tribute is the first tokens of its kind to make it into the guild bank, increment total guild bank tokens
             if (userTokenBalances[GUILD][proposal.tributeToken] == 0 && proposal.tributeOffered > 0) {
@@ -607,7 +726,7 @@ contract Moloch is ReentrancyGuard {
         emit ProcessGuildKickProposal(proposalIndex, proposalId, didPass);
     }
 
-    function _didPass(uint256 proposalIndex) internal returns (bool didPass) {
+    function _didPass(uint256 proposalIndex) internal view returns (bool didPass) {
         Proposal memory proposal = proposals[proposalQueue[proposalIndex]];
 
         didPass = proposal.yesVotes > proposal.noVotes;
@@ -658,10 +777,7 @@ contract Moloch is ReentrancyGuard {
         uint256 sharesAndLootToBurn = sharesToBurn.add(lootToBurn);
 
         // burn shares and loot
-        member.shares = member.shares.sub(sharesToBurn);
-        member.loot = member.loot.sub(lootToBurn);
-        totalShares = totalShares.sub(sharesToBurn);
-        totalLoot = totalLoot.sub(lootToBurn);
+        _setSharesLoot(memberAddress, sharesToBurn, lootToBurn, false);
 
         for (uint256 i = 0; i < approvedTokens.length; i++) {
             uint256 amountToRagequit = fairShare(userTokenBalances[GUILD][approvedTokens[i]], sharesAndLootToBurn, initialTotalSharesAndLoot);
@@ -816,18 +932,18 @@ contract Moloch is ReentrancyGuard {
         unsafeAddToBalance(to, token, amount);
     }
 
-    function fairShare(uint256 balance, uint256 shares, uint256 totalShares) internal pure returns (uint256) {
-        require(totalShares != 0);
+    function fairShare(uint256 balance, uint256 shares, uint256 _totalShares) internal pure returns (uint256) {
+        require(_totalShares != 0);
 
         if (balance == 0) { return 0; }
 
         uint256 prod = balance * shares;
 
         if (prod / balance == shares) { // no overflow in multiplication above?
-            return prod / totalShares;
+            return prod / _totalShares;
         }
 
-        return (balance / totalShares) * shares;
+        return (balance / _totalShares) * shares;
     }
 }
 
@@ -864,69 +980,70 @@ contract CloneFactory { // implementation of eip-1167 - see https://eips.ethereu
     }
 }
 
-contract MolochSummoner is CloneFactory { 
-    
+contract MolochSummoner is CloneFactory {
     address public template;
-    mapping (address => bool) public daos;
-    uint daoIdx = 0;
-    Moloch private moloch; // moloch contract
-    
+    mapping(uint256 => address) public daos;
+    uint256 public daoIdx = 0;
+
+    // Moloch private moloch; // moloch contract
+
     constructor(address _template) public {
         template = _template;
     }
-    
-    event SummonComplete(address indexed moloch, address[] summoner, address[] tokens, uint256 summoningTime, uint256 periodDuration, uint256 votingPeriodLength, uint256 gracePeriodLength, uint256 proposalDeposit, uint256 dilutionBound, uint256 processingReward, uint256[] summonerShares);
-    event Register(uint daoIdx, address moloch, string title, string http, uint version);
-     
+
+    event SummonComplete(
+        address indexed moloch,
+        address _shaman,
+        address[] tokens,
+        uint256 summoningTime,
+        uint256 periodDuration,
+        uint256 votingPeriodLength,
+        uint256 gracePeriodLength,
+        uint256 proposalDeposit,
+        uint256 dilutionBound,
+        uint256 processingReward
+    );
+
     function summonMoloch(
-        address[] memory _summoner,
+        address _summoner,
+        address _shaman,
         address[] memory _approvedTokens,
         uint256 _periodDuration,
         uint256 _votingPeriodLength,
         uint256 _gracePeriodLength,
         uint256 _proposalDeposit,
         uint256 _dilutionBound,
-        uint256 _processingReward,
-        uint256[] memory _summonerShares
+        uint256 _processingReward
     ) public returns (address) {
         Moloch moloch = Moloch(createClone(template));
-        
+
         moloch.init(
             _summoner,
+            _shaman,
             _approvedTokens,
             _periodDuration,
             _votingPeriodLength,
             _gracePeriodLength,
             _proposalDeposit,
             _dilutionBound,
-            _processingReward,
-            _summonerShares
+            _processingReward
         );
-       
-        emit SummonComplete(address(moloch), _summoner, _approvedTokens, now, _periodDuration, _votingPeriodLength, _gracePeriodLength, _proposalDeposit, _dilutionBound, _processingReward, _summonerShares);
-        
+
+        daoIdx = daoIdx + 1;
+        daos[daoIdx] = address(moloch);
+        emit SummonComplete(
+            address(moloch),
+            _shaman,
+            _approvedTokens,
+            now,
+            _periodDuration,
+            _votingPeriodLength,
+            _gracePeriodLength,
+            _proposalDeposit,
+            _dilutionBound,
+            _processingReward
+        );
+
         return address(moloch);
     }
-    
-    function registerDao(
-        address _daoAdress,
-        string memory _daoTitle,
-        string memory _http,
-        uint _version
-      ) public returns (bool) {
-          
-      moloch = Moloch(_daoAdress);
-      (,,,bool exists,,) = moloch.members(msg.sender);
-    
-      require(exists == true, "must be a member");
-      require(daos[_daoAdress] == false, "dao metadata already registered");
-
-      daos[_daoAdress] = true;
-      
-      daoIdx = daoIdx + 1;
-      emit Register(daoIdx, _daoAdress, _daoTitle, _http, _version);
-      return true;
-      
-    }
-    
 }
