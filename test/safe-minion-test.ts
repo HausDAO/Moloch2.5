@@ -604,6 +604,7 @@ describe.only('Safe Minion Functionality', function () {
       })
 
       it('Enables Buyout proposal type condition', async function () {
+        // rage quit only member 
         const action_1 = helper.interface.encodeFunctionData('isNotDaoMember', [deployerAddress, moloch.address])
         const action_2 = anyErc20.interface.encodeFunctionData('transfer', [deployerAddress, 20])
 

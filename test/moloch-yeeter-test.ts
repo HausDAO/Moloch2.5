@@ -1,49 +1,61 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
+import { ethers } from 'hardhat'
+import { solidity } from 'ethereum-waffle'
+import { use, expect } from 'chai'
+import { ContractFactory } from "@ethersproject/contracts";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { Moloch } from "../src/types/Moloch";
+import { Yeeter } from "../src/types/Yeeter";
+import { MolochSummoner } from "../src/types/MolochSummoner";
+import { YeetSummoner } from "../src/types/YeetSummoner";
+import { Wrapper } from "../src/types/Wrapper";
 
-let owner;
-let addr1;
-let addr2;
-let addrs;
+use(solidity)
 
-let yeeter;
-let wrapper;
-let moloch;
-let molochSummoner;
-let yeetSummoner;
-let Moloch;
-let Yeeter;
+describe("Moloch Yeeter Summoner", function () {
 
-let yeetContract;
-let molochContract;
-let molochUhContract;
+let signers: SignerWithAddress[]
+let owner: SignerWithAddress;
+let addr1: SignerWithAddress;
+let addr2: SignerWithAddress;
 
-describe("Moloch Summoner", function () {
+let Moloch: ContractFactory;
+let Yeeter: ContractFactory;
+let MolochSummoner: ContractFactory;
+let YeetSummoner: ContractFactory;
+let Wrapper: ContractFactory;
+let molochSummoner: MolochSummoner;
+let yeetSummoner: YeetSummoner;
+let moloch: Moloch;
+let yeeter: Yeeter;
+let wrapper: Wrapper;
+let yeetContractexpiered: Yeeter;
+
+let yeetContract: Yeeter;
+let molochContract: Moloch;
+let molochUhContract: Moloch;
+
   beforeEach(async function () {
-    [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
 
-    Moloch = await hre.ethers.getContractFactory("Moloch");
-    const MolochSummoner = await hre.ethers.getContractFactory(
+    signers = await ethers.getSigners()
+    owner = signers[0]
+    addr1 = signers[1]
+    addr2 = signers[2]
+
+    Moloch = await ethers.getContractFactory("Moloch");
+    MolochSummoner = await ethers.getContractFactory(
       "MolochSummoner"
     );
-    Yeeter = await hre.ethers.getContractFactory("Yeeter");
-    const YeetSummoner = await hre.ethers.getContractFactory("YeetSummoner");
-    const Wrapper = await hre.ethers.getContractFactory("Wrapper");
+    Yeeter = await ethers.getContractFactory("Yeeter");
+    YeetSummoner = await ethers.getContractFactory("YeetSummoner");
+    Wrapper = await ethers.getContractFactory("Wrapper");
 
-    yeeter = await Yeeter.deploy();
-    await yeeter.deployed();
+    yeeter = (await Yeeter.deploy()) as Yeeter;
+    moloch = (await Moloch.deploy()) as Moloch;
 
-    yeetSummoner = await YeetSummoner.deploy(yeeter.address);
-    await yeetSummoner.deployed();
+    yeetSummoner = (await YeetSummoner.deploy(yeeter.address) ) as YeetSummoner;
+    wrapper = (await Wrapper.deploy()) as Wrapper;
 
-    wrapper = await Wrapper.deploy();
-    await wrapper.deployed();
-
-    moloch = await Moloch.deploy();
-    await moloch.deployed();
-
-    molochSummoner = await MolochSummoner.deploy(moloch.address);
-    await molochSummoner.deployed();
+    molochSummoner = (await MolochSummoner.deploy(moloch.address)) as MolochSummoner;
 
     /* Summon new dao 
       Summoner will have one share
@@ -97,9 +109,9 @@ describe("Moloch Summoner", function () {
     const yeetIdx = await yeetSummoner.yeetIdx();
     const newYeet = await yeetSummoner.yeeters(yeetIdx);
 
-    yeetContract = await Yeeter.attach(newYeet);
-    molochContract = await Moloch.attach(newMoloch);
-    molochUhContract = await Moloch.attach(newUhMoloch);
+    yeetContract = (await Yeeter.attach(newYeet)) as Yeeter;
+    molochContract = (await Moloch.attach(newMoloch)) as Moloch;
+    molochUhContract = (await Moloch.attach(newUhMoloch)) as Moloch;
   });
   describe("Deployment", function () {
     it("Should add multiple summoners", async function () {
@@ -190,7 +202,7 @@ describe("Moloch Summoner", function () {
       const yeetIdx = await yeetSummoner.yeetIdx();
       const newYeet = await yeetSummoner.yeeters(yeetIdx);
 
-      yeetContractexpiered = await Yeeter.attach(newYeet);
+      yeetContractexpiered = (await Yeeter.attach(newYeet)) as Yeeter;
 
       const setShaman = await molochContract.setShaman(
         yeetContractexpiered.address,
