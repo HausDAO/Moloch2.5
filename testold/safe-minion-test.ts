@@ -143,8 +143,8 @@ describe.only('Safe Minion Functionality', function () {
       moloch = (await Moloch.deploy()) as Moloch
       helper = (await DaoConditionalHelper.deploy()) as DaoConditionalHelper
       molochAsAlice = await moloch.connect(alice)
-      // 5 block periods, 5 period voting, 1 period grace, 0 proposal deposit, 3 dilution bound, 0 reward, 1 summoner shares
-      await moloch.init(deployerAddress, deployerAddress,  [anyErc20.address], 5, 5, 1, 0, 3, 0)
+      // 5 block periods, 5 period voting, 1 period grace, 0 proposal deposit, 3 dilution bound, 0 reward, 100 summoner shares, 50 alice shares
+      await moloch.init([deployerAddress, aliceAddress], [anyErc20.address], 5, 5, 1, 0, 3, 0, [100, 50])
 
       // Mint ERC20 to moloch
       await anyErc20.mint(moloch.address, 10000)
@@ -171,8 +171,8 @@ describe.only('Safe Minion Functionality', function () {
       console.log({ safeMinion: safeMinion.address, gnosisSafe: gnosisSafe.address })
       console.log({ threshold })
       expect(await moloch.totalGuildBankTokens()).to.equal(1)
-      // expect((await moloch.members(aliceAddress)).shares).to.equal(1)
-      expect((await moloch.members(deployerAddress)).shares).to.equal(1)
+      expect((await moloch.members(aliceAddress)).shares).to.equal(50)
+      expect((await moloch.members(deployerAddress)).shares).to.equal(100)
       expect(await gnosisSafe.isOwner(safeMinion.address)).to.equal(true)
       // expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(false)
       // expect(await gnosisSafe.isModuleEnabled(safeMinion.address)).to.equal(true)
@@ -287,7 +287,7 @@ describe.only('Safe Minion Functionality', function () {
       this.beforeEach(async function() {
         otherMoloch = (await Moloch.deploy()) as Moloch
         otherErc20 = (await AnyERC20.deploy()) as AnyErc20
-        await otherMoloch.init(deployerAddress, deployerAddress, [anyErc20.address, otherErc20.address], 5, 5, 1, 0, 3, 0)
+        await otherMoloch.init([deployerAddress], [anyErc20.address, otherErc20.address], 5, 5, 1, 0, 3, 0, [100])
         await anyErc20.mint(otherMoloch.address, 100)
         await otherErc20.mint(otherMoloch.address, 100)
         await otherMoloch.collectTokens(anyErc20.address)
@@ -604,8 +604,8 @@ describe.only('Safe Minion Functionality', function () {
       })
 
       it('Enables Buyout proposal type condition', async function () {
-        const action_1 = helper.interface.encodeFunctionData('isNotDaoMember', [deployerAddress, moloch.address])
-        const action_2 = anyErc20.interface.encodeFunctionData('transfer', [deployerAddress, 20])
+        const action_1 = helper.interface.encodeFunctionData('isNotDaoMember', [aliceAddress, moloch.address])
+        const action_2 = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 20])
 
         const multi_action = encodeMultiAction(multisend, [action_1, action_2], [helper.address, anyErc20.address], [0, 0])
 
@@ -616,11 +616,11 @@ describe.only('Safe Minion Functionality', function () {
         // should fail before ragequit
         expect(safeMinion.executeAction(0, multi_action)).to.be.revertedWith('Minion::call failure')
 
-        await moloch.ragequit(1, 0)
+        await molochAsAlice.ragequit(50, 0)
         // now it should complete successfully
         await safeMinion.executeAction(0, multi_action)
 
-        expect(await anyErc20.balanceOf(deployerAddress)).to.equal(20)
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(20)
       })
     })
   })

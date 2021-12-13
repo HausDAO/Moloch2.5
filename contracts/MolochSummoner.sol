@@ -486,7 +486,7 @@ contract Moloch is ReentrancyGuard {
         string memory details,
         bool[6] memory flags
     ) internal {
-        require(msg.value > spamPrevention, "spam prevention on");
+        require(msg.value >= spamPrevention, "spam prevention on");
         if (spamPrevention > 0) {
             (bool success, ) = spamPreventionAddr.call.value(msg.value)("");
             require(success, "failed");
@@ -826,7 +826,7 @@ contract Moloch is ReentrancyGuard {
         emit Withdraw(msg.sender, token, amount);
     }
 
-    function collectTokens(address token) public onlyDelegate nonReentrant {
+    function collectTokens(address token) public onlyDelegateOrShaman nonReentrant {
         uint256 amountToCollect = IERC20(token).balanceOf(address(this)).sub(userTokenBalances[TOTAL][token]);
         // only collect if 1) there are tokens to collect 2) token is whitelisted 3) token has non-zero balance
         require(amountToCollect > 0, 'no tokens to collect');
