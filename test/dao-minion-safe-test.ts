@@ -135,14 +135,14 @@ describe("Moloch Yeeter Summoner", function () {
     console.log(molochSummoner.address, safeMinionSummoner.address);
     
     daoSafeMinionSummoner = (await DaoSafeMinionSummoner.deploy(
-      molochSummoner.address,
-      safeMinionSummoner.address
+      safeMinionSummoner.address,
+      molochSummoner.address
     )) as DaoSafeMinionSummoner;
     
     console.log('dsm addr', daoSafeMinionSummoner.address);
     
   });
-  describe("Deployment", function () {
+  describe.only("Deployment", function () {
     it("Should deploy a new minion, safe and dao", async function () {
       const salt = await generateNonce()
       anyErc20 = (await AnyERC20.deploy()) as AnyErc20

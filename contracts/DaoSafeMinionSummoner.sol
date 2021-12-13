@@ -157,6 +157,7 @@ contract DaoSafeMinionSummoner {
     ) external returns (address, address) {
         // Deploy new minion but do not set it up yet
         console.log("fffffffffffffffffffffff in contract", address(this));
+        console.log("fffffffffffffffffffffff in contract", address(daoSummoner));
 
         address _moloch = daoSummoner.summonMoloch(
             msg.sender, // summoner
