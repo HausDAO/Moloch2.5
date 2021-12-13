@@ -2,9 +2,7 @@ pragma solidity ^0.8.0;
 pragma abicoder v2;
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-
-// import "./SafeMinion.sol";
-// import "./MolochSummoner.sol";
+import "hardhat/console.sol";
 
 interface IMinionFactory {
     function summonMinionAndSafe(
@@ -145,6 +143,7 @@ contract DaoSafeMinionSummoner {
     constructor(address _minionSummoner, address _daoSummoner) {
         minionSummoner = IMinionFactory(_minionSummoner);
         daoSummoner = IMolochFactory(_daoSummoner);
+        console.log("addrs in contract", address(minionSummoner), address(daoSummoner));
     }
 
     /// @dev Function to summon minion and configure with a new safe
@@ -155,8 +154,10 @@ contract DaoSafeMinionSummoner {
         uint256 _votingPeriodLength,
         uint256 _gracePeriodLength,
         address[] calldata _approvedTokens
-    ) external returns (address) {
+    ) external returns (address, address) {
         // Deploy new minion but do not set it up yet
+        console.log("fffffffffffffffffffffff in contract", address(this));
+
         address _moloch = daoSummoner.summonMoloch(
             msg.sender, // summoner
             address(this), // _shaman,
@@ -168,14 +169,16 @@ contract DaoSafeMinionSummoner {
             3, // dillution bound
             0  // reward
         );
+        console.log("f in contract", _moloch, _saltNonce, address(this));
+
         address _minion = minionSummoner.summonMinionAndSafe(
             _moloch,
-            "",
+            "This is the details",
             0,
             _saltNonce
         );
 
-        return (address(_minion));
+        return (_moloch, _minion);
     }
 
     function setUpDaoMinionAndSafe(
