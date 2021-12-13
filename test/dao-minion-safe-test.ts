@@ -131,15 +131,10 @@ describe("Moloch Yeeter Summoner", function () {
 
     // console.log(safeMinionSummoner);
     
-
-    console.log(molochSummoner.address, safeMinionSummoner.address);
-    
     daoSafeMinionSummoner = (await DaoSafeMinionSummoner.deploy(
       safeMinionSummoner.address,
       molochSummoner.address
     )) as DaoSafeMinionSummoner;
-    
-    console.log('dsm addr', daoSafeMinionSummoner.address);
     
   });
   describe.only("Deployment", function () {
@@ -147,15 +142,26 @@ describe("Moloch Yeeter Summoner", function () {
       const salt = await generateNonce()
       anyErc20 = (await AnyERC20.deploy()) as AnyErc20
       
-      await daoSafeMinionSummoner.summonDaoMinionAndSafe("0x" + salt, 300, 1, 1, [anyErc20.address])
+      await daoSafeMinionSummoner.summonDaoMinionAndSafe("0x" + salt, 300, 1, 1, [anyErc20.address], "test")
 
-      // console.log('dsm', dsm);
-      
-     
+      // expect shaman to be factory
+
     });
-    it("should be able to disable a shaman", async function () {
-      console.log('todo');
+    it("should set up the dao with multiple summoners and a shaman", async function () {
+      const salt = await generateNonce()
+      anyErc20 = (await AnyERC20.deploy()) as AnyErc20
+      
+      await daoSafeMinionSummoner.summonDaoMinionAndSafe("0x" + salt, 300, 1, 1, [anyErc20.address], "test")
+      const idx = await daoSafeMinionSummoner.daoIdx();
+      const dsm = await daoSafeMinionSummoner.daos(idx);
 
+      console.log('DSM minion', dsm.minion);
+      console.log('DSM moloch', dsm.moloch);
+      
+      // set up moloch with multiple share/loot holders and add the minion shaman 
+      await daoSafeMinionSummoner.setUpDaoMinionAndSafe(dsm.moloch, dsm.minion, [addr1.address, addr2.address],[1,2],[3,4]);
+
+      // expect addr 1 and 2 to have shares and loot now and shaman is minion
     });
   });
 });
