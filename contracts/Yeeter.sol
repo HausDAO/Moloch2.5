@@ -1,4 +1,5 @@
-pragma solidity ^0.6.1;
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity ^0.8.0;
 
 import "./MolochSummoner.sol";
 import "./Wrapper.sol";
@@ -59,7 +60,7 @@ contract Yeeter {
         );
 
         // wrap
-        (bool success, ) = address(wrapper).call.value(newValue)("");
+        (bool success, ) = address(wrapper).call{value: newValue}("");
         require(success, "wrap failed");
         // send to dao
         require(
@@ -69,7 +70,7 @@ contract Yeeter {
 
         if (msg.value > newValue) {
             // Return the extra money to the minter.
-            (bool success2, ) = msg.sender.call.value(msg.value - newValue)("");
+            (bool success2, ) = msg.sender.call{value: msg.value - newValue}("");
             require(success2, "Transfer failed");
         }
 
@@ -110,7 +111,7 @@ contract YeetSummoner is CloneFactory {
 
     // Moloch private moloch; // moloch contract
 
-    constructor(address payable _template) public {
+    constructor(address payable _template) {
         template = _template;
     }
 
