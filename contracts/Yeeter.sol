@@ -13,7 +13,8 @@ contract Yeeter {
     uint256 maxUnitsPerAddr; 
     uint256 pricePerUnit;
     uint256 lootPerUnit = 100;
-    uint256 fee = 3;
+    uint256 fee = 3; // TODO: should we be able to set this?
+
 
     uint256 balance;
     Moloch public moloch;

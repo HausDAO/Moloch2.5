@@ -8,9 +8,22 @@ import { AnyErc20 } from "../src/types/AnyErc20";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumberish } from "@ethersproject/bignumber";
 
+const {
+  verifyBalance,
+  verifyInternalBalance,
+  verifyInternalBalances,
+  verifyAllowance,
+  verifyProposal,
+  verifyFlags,
+  verifyBalances,
+  verifySubmitVote,
+  verifyProcessProposal,
+  verifyMember,
+} = require("./moloch-test-utils.js");
+
 use(solidity);
 
-const BN = ethers.BigNumber
+const BN = ethers.BigNumber;
 
 const revertMessages = {
   molochConstructorSummonerCannotBe0: "summoner cannot be 0",
@@ -115,7 +128,7 @@ function addressArray(length: BigNumberish) {
   // returns an array of distinct non-zero addresses
   let array = [];
   for (let i = 1; i <= length; i++) {
-    array.push("0x" + (i).toString(16).padStart(40, '0'));
+    array.push("0x" + i.toString(16).padStart(40, "0"));
   }
   return array;
 }
@@ -162,6 +175,22 @@ describe.only("Moloch DAO Summoner", function () {
     TOKEN_SUPPLY: 10000,
   };
 
+  const firstProposalIndex = 0;
+  const secondProposalIndex = 1;
+  const thirdProposalIndex = 2;
+  const invalidPropsalIndex = 123;
+
+  const yes = 1;
+  const no = 2;
+
+  const standardShareRequest = 1;
+  const standardLootRequest = 10;
+  const standardTribute = _1e18;
+  const summonerShares = 1;
+
+  let proposal1 = {};
+  let proposal2 = {};
+
   async function moveForwardPeriods(periods: number) {
     await blockTime();
     const goToTime = deploymentConfig.PERIOD_DURATION_IN_SECONDS * periods;
@@ -171,7 +200,7 @@ describe.only("Moloch DAO Summoner", function () {
     return true;
   }
 
-  beforeEach("deploy contracts", async () => {
+  before("deploy contracts", async () => {
     signers = await ethers.getSigners();
     summoner = signers[0];
     addr1 = signers[1];
@@ -186,6 +215,13 @@ describe.only("Moloch DAO Summoner", function () {
       moloch.address
     )) as MolochSummoner;
     anyErc20 = (await AnyERC20.deploy()) as AnyErc20;
+    await anyErc20.mint(summoner.address, deploymentConfig.TOKEN_SUPPLY);
+    await anyErc20.mint(summoner.address, standardTribute);
+    // await anyErc20.mint(addr1.address, standardTribute);
+    // await anyErc20.mint(addr2.address, standardTribute);
+  });
+
+  beforeEach("should deploy a new moloch", async function () {
     const sum = await molochSummoner.summonMoloch(
       summoner.address,
       summoner.address,
@@ -203,337 +239,333 @@ describe.only("Moloch DAO Summoner", function () {
     const depositTokenAddress = await molochContract.depositToken();
 
     expect(depositTokenAddress).to.equal(anyErc20.address);
-
-    await anyErc20.mint(summoner.address, deploymentConfig.TOKEN_SUPPLY);
   });
+  describe("deployement tests", function () {
+    it("verify deployment parameters", async () => {
+      // eslint-disable-next-line no-unused-vars
+      const now = await blockTime();
 
-  it("should deploy a new moloch", async function () {});
+      const proposalCount = await molochContract.proposalCount();
+      expect(proposalCount).to.equal(0);
 
-  it("verify deployment parameters", async () => {
-    // eslint-disable-next-line no-unused-vars
-    const now = await blockTime();
+      const periodDuration = await molochContract.periodDuration();
+      expect(+periodDuration).to.equal(
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS
+      );
 
-    const proposalCount = await molochContract.proposalCount();
-    expect(proposalCount).to.equal(0);
+      const votingPeriodLength = await molochContract.votingPeriodLength();
+      expect(+votingPeriodLength).to.equal(
+        deploymentConfig.VOTING_DURATON_IN_PERIODS
+      );
 
-    const periodDuration = await molochContract.periodDuration();
-    expect(+periodDuration).to.equal(
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS
-    );
+      const gracePeriodLength = await molochContract.gracePeriodLength();
+      expect(+gracePeriodLength).to.equal(
+        deploymentConfig.GRACE_DURATON_IN_PERIODS
+      );
 
-    const votingPeriodLength = await molochContract.votingPeriodLength();
-    expect(+votingPeriodLength).to.equal(
-      deploymentConfig.VOTING_DURATON_IN_PERIODS
-    );
+      const proposalDeposit = await molochContract.proposalDeposit();
+      expect(+proposalDeposit).to.equal(deploymentConfig.PROPOSAL_DEPOSIT);
 
-    const gracePeriodLength = await molochContract.gracePeriodLength();
-    expect(+gracePeriodLength).to.equal(
-      deploymentConfig.GRACE_DURATON_IN_PERIODS
-    );
+      const dilutionBound = await molochContract.dilutionBound();
+      expect(+dilutionBound).to.equal(deploymentConfig.DILUTION_BOUND);
 
-    const proposalDeposit = await molochContract.proposalDeposit();
-    expect(+proposalDeposit).to.equal(deploymentConfig.PROPOSAL_DEPOSIT);
+      const processingReward = await molochContract.processingReward();
+      expect(+processingReward).to.equal(deploymentConfig.PROCESSING_REWARD);
 
-    const dilutionBound = await molochContract.dilutionBound();
-    expect(+dilutionBound).to.equal(deploymentConfig.DILUTION_BOUND);
+      const currentPeriod = await molochContract.getCurrentPeriod();
+      expect(+currentPeriod).to.equal(0);
 
-    const processingReward = await molochContract.processingReward();
-    expect(+processingReward).to.equal(deploymentConfig.PROCESSING_REWARD);
+      const summonerData = await molochContract.members(summoner.address);
+      expect(summonerData.delegateKey).to.equal(summoner.address); // delegateKey matches
+      // expect(summonerData.shares).to.equal(summonerShares)
+      expect(summonerData.exists).to.equal(true);
+      expect(summonerData.highestIndexYesVote).to.equal(0);
 
-    const currentPeriod = await molochContract.getCurrentPeriod();
-    expect(+currentPeriod).to.equal(0);
+      const summonerAddressByDelegateKey =
+        await molochContract.memberAddressByDelegateKey(summoner.address);
+      expect(summonerAddressByDelegateKey).to.equal(summoner.address);
 
-    const summonerData = await molochContract.members(summoner.address);
-    expect(summonerData.delegateKey).to.equal(summoner.address); // delegateKey matches
-    // expect(summonerData.shares).to.equal(summonerShares)
-    expect(summonerData.exists).to.equal(true);
-    expect(summonerData.highestIndexYesVote).to.equal(0);
+      const totalShares = await molochContract.totalShares();
+      expect(+totalShares).to.equal(1);
 
-    const summonerAddressByDelegateKey =
-      await molochContract.memberAddressByDelegateKey(summoner.address);
-    expect(summonerAddressByDelegateKey).to.equal(summoner.address);
+      const totalLoot = await molochContract.totalLoot();
+      expect(+totalLoot).to.equal(0);
 
-    const totalShares = await molochContract.totalShares();
-    expect(+totalShares).to.equal(1);
+      const totalGuildBankTokens = await molochContract.totalGuildBankTokens();
+      expect(+totalGuildBankTokens).to.equal(0);
 
-    const totalLoot = await molochContract.totalLoot();
-    expect(+totalLoot).to.equal(0);
+      // confirm initial deposit token supply and summoner balance
+      //   const tokenSupply = await anyErc20.totalSupply();
+      //   expect(+tokenSupply.toString()).to.equal(deploymentConfig.TOKEN_SUPPLY);
+      //   const summonerBalance = await anyErc20.balanceOf(summoner.address);
+      //   expect(+summonerBalance.toString()).to.equal(
+      //     deploymentConfig.TOKEN_SUPPLY + standardTribute
+      //   );
+      //expect(+summonerBalance.toString()).to.equal(initSummonerBalance)
+      // const creatorBalance = await tokenAlpha.balanceOf(creator)
+      // expect(creatorBalance).to.equal( deploymentConfig.TOKEN_SUPPLY - initSummonerBalance)
 
-    const totalGuildBankTokens = await molochContract.totalGuildBankTokens();
-    expect(+totalGuildBankTokens).to.equal(0);
+      // check all tokens passed in construction are approved
+      const tokenAlphaApproved = await molochContract.tokenWhitelist(
+        anyErc20.address
+      );
+      assert(tokenAlphaApproved, "true");
 
-    // confirm initial deposit token supply and summoner balance
-    const tokenSupply = await anyErc20.totalSupply();
-    expect(+tokenSupply.toString()).to.equal(deploymentConfig.TOKEN_SUPPLY);
-    const summonerBalance = await anyErc20.balanceOf(summoner.address);
-    expect(+summonerBalance.toString()).to.equal(deploymentConfig.TOKEN_SUPPLY);
-    //expect(+summonerBalance.toString()).to.equal(initSummonerBalance)
-    // const creatorBalance = await tokenAlpha.balanceOf(creator)
-    // expect(creatorBalance).to.equal( deploymentConfig.TOKEN_SUPPLY - initSummonerBalance)
+      // first token should be the deposit token
+      const firstWhitelistedToken = await molochContract.approvedTokens(0);
+      //expect(firstWhitelistedToken, depositToken.address)
+      expect(firstWhitelistedToken).to.equal(anyErc20.address);
+    });
 
-    // check all tokens passed in construction are approved
-    const tokenAlphaApproved = await molochContract.tokenWhitelist(
-      anyErc20.address
-    );
-    assert(tokenAlphaApproved, "true");
-
-    // first token should be the deposit token
-    const firstWhitelistedToken = await molochContract.approvedTokens(0);
-    //expect(firstWhitelistedToken, depositToken.address)
-    expect(firstWhitelistedToken).to.equal(anyErc20.address);
-  });
-
-  it("require fail - summoner can not be zero address", async () => {
-      
-    const sum = molochSummoner.summonMoloch(
+    it("require fail - summoner can not be zero address", async () => {
+      const sum = molochSummoner.summonMoloch(
         zeroAddress,
-      summoner.address,
-      [anyErc20.address],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      deploymentConfig.VOTING_DURATON_IN_PERIODS,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      deploymentConfig.DILUTION_BOUND,
-      deploymentConfig.PROCESSING_REWARD
-    );
+        summoner.address,
+        [anyErc20.address],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        deploymentConfig.VOTING_DURATON_IN_PERIODS,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        deploymentConfig.DILUTION_BOUND,
+        deploymentConfig.PROCESSING_REWARD
+      );
 
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorSummonerCannotBe0
-    );
-  });
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorSummonerCannotBe0
+      );
+    });
 
-  it("require fail - period duration can not be zero", async () => {
-    const sum = molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [anyErc20.address],
-      0,
-      deploymentConfig.VOTING_DURATON_IN_PERIODS,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      deploymentConfig.DILUTION_BOUND,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorPeriodDurationCannotBe0
-    );
-  });
+    it("require fail - period duration can not be zero", async () => {
+      const sum = molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [anyErc20.address],
+        0,
+        deploymentConfig.VOTING_DURATON_IN_PERIODS,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        deploymentConfig.DILUTION_BOUND,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorPeriodDurationCannotBe0
+      );
+    });
 
-  it("require fail - voting period can not be zero", async () => {
-    const sum = molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [anyErc20.address],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      0,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      deploymentConfig.DILUTION_BOUND,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorVotingPeriodLengthCannotBe0
-    );
-  });
+    it("require fail - voting period can not be zero", async () => {
+      const sum = molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [anyErc20.address],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        0,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        deploymentConfig.DILUTION_BOUND,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorVotingPeriodLengthCannotBe0
+      );
+    });
 
-  it("require fail - voting period exceeds limit", async () => {
-    const sum = molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [anyErc20.address],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      _1e18Plus1,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      deploymentConfig.DILUTION_BOUND,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorVotingPeriodLengthExceedsLimit
-    );
+    it("require fail - voting period exceeds limit", async () => {
+      const sum = molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [anyErc20.address],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        _1e18Plus1,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        deploymentConfig.DILUTION_BOUND,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorVotingPeriodLengthExceedsLimit
+      );
 
-    // still works with 1 less
+      // still works with 1 less
 
-    const sum2 = await molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [anyErc20.address],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      _1e18,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      deploymentConfig.DILUTION_BOUND,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    const idx = await molochSummoner.daoIdx();
-    const newMoloch = await molochSummoner.daos(idx);
-    const molochTemp = (await Moloch.attach(newMoloch)) as Moloch;
+      const sum2 = await molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [anyErc20.address],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        _1e18,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        deploymentConfig.DILUTION_BOUND,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      const idx = await molochSummoner.daoIdx();
+      const newMoloch = await molochSummoner.daos(idx);
+      const molochTemp = (await Moloch.attach(newMoloch)) as Moloch;
 
-    const totalShares = await molochTemp.totalShares();
-    assert.equal(+totalShares, 1);
-  });
+      const totalShares = await molochTemp.totalShares();
+      assert.equal(+totalShares, 1);
+    });
 
-  it("require fail - grace period exceeds limit", async () => {
-    const sum = molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [anyErc20.address],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      deploymentConfig.VOTING_DURATON_IN_PERIODS,
-      _1e18Plus1,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      deploymentConfig.DILUTION_BOUND,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorGracePeriodLengthExceedsLimit
-    );
+    it("require fail - grace period exceeds limit", async () => {
+      const sum = molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [anyErc20.address],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        deploymentConfig.VOTING_DURATON_IN_PERIODS,
+        _1e18Plus1,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        deploymentConfig.DILUTION_BOUND,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorGracePeriodLengthExceedsLimit
+      );
 
-    // still works with 1 less
+      // still works with 1 less
 
-    const sum2 = await molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [anyErc20.address],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      _1e18,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      deploymentConfig.DILUTION_BOUND,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    const idx = await molochSummoner.daoIdx();
-    const newMoloch = await molochSummoner.daos(idx);
-    const molochTemp = (await Moloch.attach(newMoloch)) as Moloch;
+      const sum2 = await molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [anyErc20.address],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        _1e18,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        deploymentConfig.DILUTION_BOUND,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      const idx = await molochSummoner.daoIdx();
+      const newMoloch = await molochSummoner.daos(idx);
+      const molochTemp = (await Moloch.attach(newMoloch)) as Moloch;
 
-    const totalShares = await molochTemp.totalShares();
-    assert.equal(+totalShares, 1);
-  });
+      const totalShares = await molochTemp.totalShares();
+      assert.equal(+totalShares, 1);
+    });
 
-  it("require fail - dilution bound can not be zero", async () => {
-    const sum = molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [anyErc20.address],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      deploymentConfig.VOTING_DURATON_IN_PERIODS,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      0,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorDilutionBoundCannotBe0
-    );
-  });
+    it("require fail - dilution bound can not be zero", async () => {
+      const sum = molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [anyErc20.address],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        deploymentConfig.VOTING_DURATON_IN_PERIODS,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        0,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorDilutionBoundCannotBe0
+      );
+    });
 
-  it("require fail - dilution bound exceeds limit", async () => {
-    const sum = molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [anyErc20.address],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      deploymentConfig.VOTING_DURATON_IN_PERIODS,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      _1e18Plus1,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorDilutionBoundExceedsLimitExceedsLimit
-    );
+    it("require fail - dilution bound exceeds limit", async () => {
+      const sum = molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [anyErc20.address],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        deploymentConfig.VOTING_DURATON_IN_PERIODS,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        _1e18Plus1,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorDilutionBoundExceedsLimitExceedsLimit
+      );
 
-    // still works with 1 less
+      // still works with 1 less
 
-    const sum2 = await molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [anyErc20.address],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      deploymentConfig.VOTING_DURATON_IN_PERIODS,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      _1e18,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    const idx = await molochSummoner.daoIdx();
-    const newMoloch = await molochSummoner.daos(idx);
-    const molochTemp = (await Moloch.attach(newMoloch)) as Moloch;
-    const totalShares = await molochTemp.totalShares();
-    assert.equal(+totalShares, 1);
-  });
+      const sum2 = await molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [anyErc20.address],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        deploymentConfig.VOTING_DURATON_IN_PERIODS,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        _1e18,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      const idx = await molochSummoner.daoIdx();
+      const newMoloch = await molochSummoner.daos(idx);
+      const molochTemp = (await Moloch.attach(newMoloch)) as Moloch;
+      const totalShares = await molochTemp.totalShares();
+      assert.equal(+totalShares, 1);
+    });
 
-  it("require fail - need at least one approved token", async () => {
-    const sum = molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      deploymentConfig.VOTING_DURATON_IN_PERIODS,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      deploymentConfig.DILUTION_BOUND,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorNeedAtLeastOneApprovedToken
-    );
-  });
+    it("require fail - need at least one approved token", async () => {
+      const sum = molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        deploymentConfig.VOTING_DURATON_IN_PERIODS,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        deploymentConfig.DILUTION_BOUND,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorNeedAtLeastOneApprovedToken
+      );
+    });
 
-  it("require fail - too many tokens", async () => {
-    const sum = molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      addressArray(MAX_TOKEN_WHITELIST_COUNT.add(1)),
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      deploymentConfig.VOTING_DURATON_IN_PERIODS,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      deploymentConfig.DILUTION_BOUND,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorTooManyTokens
-    );
-  });
+    it("require fail - too many tokens", async () => {
+      const sum = molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        addressArray(MAX_TOKEN_WHITELIST_COUNT.add(1)),
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        deploymentConfig.VOTING_DURATON_IN_PERIODS,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        deploymentConfig.DILUTION_BOUND,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorTooManyTokens
+      );
+    });
 
-  it("require fail - deposit cannot be smaller than processing reward", async () => {
-    const sum = molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [anyErc20.address],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      deploymentConfig.VOTING_DURATON_IN_PERIODS,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      _1e18,
-      deploymentConfig.DILUTION_BOUND,
-      _1e18Plus1
-    );
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorDepositCannotBeSmallerThanProcessingReward
-    );
-  });
+    it("require fail - deposit cannot be smaller than processing reward", async () => {
+      const sum = molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [anyErc20.address],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        deploymentConfig.VOTING_DURATON_IN_PERIODS,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        _1e18,
+        deploymentConfig.DILUTION_BOUND,
+        _1e18Plus1
+      );
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorDepositCannotBeSmallerThanProcessingReward
+      );
+    });
 
-  it("require fail - approved token cannot be zero", async () => {
-    const sum = molochSummoner.summonMoloch(
-      summoner.address,
-      summoner.address,
-      [zeroAddress],
-      deploymentConfig.PERIOD_DURATION_IN_SECONDS,
-      deploymentConfig.VOTING_DURATON_IN_PERIODS,
-      deploymentConfig.GRACE_DURATON_IN_PERIODS,
-      deploymentConfig.PROPOSAL_DEPOSIT,
-      deploymentConfig.DILUTION_BOUND,
-      deploymentConfig.PROCESSING_REWARD
-    );
-    await expect(sum).to.be.revertedWith(
-      revertMessages.molochConstructorApprovedTokenCannotBe0
-    );
-  });
+    it("require fail - approved token cannot be zero", async () => {
+      const sum = molochSummoner.summonMoloch(
+        summoner.address,
+        summoner.address,
+        [zeroAddress],
+        deploymentConfig.PERIOD_DURATION_IN_SECONDS,
+        deploymentConfig.VOTING_DURATON_IN_PERIODS,
+        deploymentConfig.GRACE_DURATON_IN_PERIODS,
+        deploymentConfig.PROPOSAL_DEPOSIT,
+        deploymentConfig.DILUTION_BOUND,
+        deploymentConfig.PROCESSING_REWARD
+      );
+      await expect(sum).to.be.revertedWith(
+        revertMessages.molochConstructorApprovedTokenCannotBe0
+      );
+    });
 
-  it("require fail - duplicate approved token", async () => {
-
-    const sum = molochSummoner.summonMoloch(
+    it("require fail - duplicate approved token", async () => {
+      const sum = molochSummoner.summonMoloch(
         summoner.address,
         summoner.address,
         [anyErc20.address, anyErc20.address],
@@ -547,6 +579,140 @@ describe.only("Moloch DAO Summoner", function () {
       await expect(sum).to.be.revertedWith(
         revertMessages.molochConstructorDuplicateApprovedToken
       );
+    });
+  });
+  describe("submitProposal", function () {
+    beforeEach(async () => {
+      let proposal1 = {
+        applicant: addr1.address,
+        sharesRequested: standardShareRequest,
+        lootRequested: standardLootRequest,
+        tributeOffered: standardTribute,
+        tributeToken: anyErc20.address,
+        paymentRequested: 0,
+        paymentToken: anyErc20.address,
+        details: "all hail moloch",
+      };
+
+      let proposal2 = {
+        applicant: addr2.address,
+        sharesRequested: 50,
+        lootRequested: 25,
+        tributeOffered: 50,
+        tributeToken: anyErc20.address,
+        paymentRequested: 0,
+        paymentToken: anyErc20.address,
+        details: "all hail moloch 2",
+      };
+
+      const bal = await anyErc20.balanceOf(summoner.address)
+      console.log('bal', bal.toString());
+      
+      await anyErc20.mint(addr1.address, proposal1.tributeOffered);
+      const tokenAsAddr1 = await anyErc20.connect(addr1);
+      
+      await tokenAsAddr1.approve(molochContract.address, proposal1.tributeOffered);
+
+      const allow = await anyErc20.allowance(addr1.address, molochContract.address)
+      console.log('allow', allow.toString());
+    });
+
+    it("happy case", async () => {
+      const countBefore = await molochContract.proposalCount();
+
+      let proposal1 = {
+        applicant: addr1.address,
+        sharesRequested: standardShareRequest,
+        lootRequested: standardLootRequest,
+        tributeOffered: standardTribute,
+        tributeToken: anyErc20.address,
+        paymentRequested: 0,
+        paymentToken: anyErc20.address,
+        details: "all hail moloch",
+      };
+
+      let proposal2 = {
+        applicant: addr2.address,
+        sharesRequested: 50,
+        lootRequested: 25,
+        tributeOffered: 50,
+        tributeToken: anyErc20.address,
+        paymentRequested: 0,
+        paymentToken: anyErc20.address,
+        details: "all hail moloch 2",
+      };
+
+      await verifyBalance({
+        token: anyErc20,
+        address: proposal1.applicant,
+        expectedBalance: proposal1.tributeOffered,
+      });
+
+      const molochAsAddr1 = await molochContract.connect(addr1);
+
+      const proposer = addr1.address;
+      const prop = await molochAsAddr1.submitProposal(
+        proposal1.applicant,
+        proposal1.sharesRequested,
+        proposal1.lootRequested,
+        proposal1.tributeOffered,
+        proposal1.tributeToken,
+        proposal1.paymentRequested,
+        proposal1.paymentToken,
+        proposal1.details
+      );
+
+      console.log('prop', prop);
+      
+
+      const countAfter = await molochContract.proposalCount();
+      assert.equal(+countAfter, +countBefore.add(_1));
+
+      console.log('verify prop');
+      
+      await verifyProposal({
+        moloch: molochContract,
+        proposal: proposal1,
+        proposalId: firstProposalIndex,
+        proposer: proposer,
+        expectedProposalCount: 1,
+      });
+      console.log('verify flags');
+
+      await verifyFlags({
+        moloch: molochContract,
+        proposalId: firstProposalIndex,
+        expectedFlags: [false, false, false, false, false, false],
+      });
+
+      // tribute been moved to the DAO
+      console.log('verify balance');
+
+      await verifyBalance({
+        token: anyErc20,
+        address: proposal1.applicant,
+        expectedBalance: 0,
+      });
+
+      // DAO is holding the tribute
+      console.log('verify dao balance');
+
+      await verifyBalance({
+        token: anyErc20,
+        address: molochContract.address,
+        expectedBalance: proposal1.tributeOffered,
+      });
+
+      // ESCROW balance has been updated
+      console.log('verify internal balance');
+
+      await verifyInternalBalance({
+        moloch: molochContract,
+        token: anyErc20,
+        user: ESCROW,
+        expectedBalance: proposal1.tributeOffered,
+      });
+    });
   });
 
   afterEach(async () => {});

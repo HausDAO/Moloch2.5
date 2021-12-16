@@ -201,10 +201,11 @@ contract DaoSafeMinionSummoner {
 
         daoIdx = daoIdx + 1;
         daos[daoIdx] = DSM(_moloch, _minion);
+        // try to fit avatar
         emit SummonComplete(
             msg.sender, // summoner
             _moloch,
-            _minion,
+            _minion,  // TODO: add shaman and *safe avatar*
             _approvedTokens,
             _periodDuration,
             _votingPeriodLength,
@@ -215,11 +216,12 @@ contract DaoSafeMinionSummoner {
 
     function setUpDaoMinionAndSafe(
         address _moloch,
-        address _minion,
+        address _shaman,
         address[] memory _summoners,
         uint256[] memory _summonerShares,
         uint256[] memory _summonerLoot
     ) public {
+        // TODO: should this be public prob not?
         IMOLOCH molochContract = IMOLOCH(_moloch);
 
         molochContract.setSharesLoot(
@@ -228,11 +230,11 @@ contract DaoSafeMinionSummoner {
             _summonerLoot,
             true
         );
-        molochContract.setShaman(_minion, true);
+        molochContract.setShaman(_shaman, true);
         
         emit SetupComplete(
             _moloch,
-            _minion,
+            _shaman, // TODO: is this the shaman
             _summoners,
             _summonerShares,
             _summonerLoot
