@@ -138,7 +138,7 @@ contract Moloch is ReentrancyGuard {
         address _spamPreventionAddr,
         uint256 _spamPrevention
     );
-    // TODO: not isMInion but enable
+
     event SetShaman(address indexed shaman, bool isEnabled);
 
     // *******************
@@ -243,9 +243,6 @@ contract Moloch is ReentrancyGuard {
         address _spamPreventionAddr,
         uint256 _spamPrevention
     ) public onlyShaman {
-        // could brick a dao if this is set too high and only the minion can change
-        //TODO: change fee?
-        require(_spamPrevention < 1000000000000000000, "fee too high");
         spamPreventionAddr = _spamPreventionAddr;
         spamPrevention = _spamPrevention;
 
@@ -453,8 +450,7 @@ contract Moloch is ReentrancyGuard {
         bool[6] memory flags
     ) internal {
         require(msg.value >= spamPrevention, "spam prevention on");
-        if (spamPrevention > 0) {
-            // TODO: ingnore shaman
+        if (spamPrevention > 0 && !shamans[msg.sender]) {
             (bool success, ) = spamPreventionAddr.call{value: msg.value}("");
             require(success, "failed");
         }

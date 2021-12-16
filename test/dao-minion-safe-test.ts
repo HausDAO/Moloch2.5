@@ -27,7 +27,7 @@ const generateNonce = async () => {
 
 use(solidity);
 
-describe("Moloch Yeeter Summoner", function () {
+describe.only("Moloch Yeeter Summoner", function () {
   let signers: SignerWithAddress[];
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
@@ -153,15 +153,40 @@ describe("Moloch Yeeter Summoner", function () {
       
       await daoSafeMinionSummoner.summonDaoMinionAndSafe("0x" + salt, 300, 1, 1, [anyErc20.address], "test")
       const idx = await daoSafeMinionSummoner.daoIdx();
-      const dsm = await daoSafeMinionSummoner.daos(idx);
-
-      console.log('DSM minion', dsm.minion);
-      console.log('DSM moloch', dsm.moloch);
+      // const dsm = await daoSafeMinionSummoner.daos(idx);
       
       // set up moloch with multiple share/loot holders and add the minion shaman 
-      await daoSafeMinionSummoner.setUpDaoMinionAndSafe(dsm.moloch, dsm.minion, [addr1.address, addr2.address],[1,2],[3,4]);
+      await daoSafeMinionSummoner.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[1,2],[3,4]);
 
       // expect addr 1 and 2 to have shares and loot now and shaman is minion
+    });
+    it("should initialize only once", async function () {
+      const salt = await generateNonce()
+      anyErc20 = (await AnyERC20.deploy()) as AnyErc20
+      
+      await daoSafeMinionSummoner.summonDaoMinionAndSafe("0x" + salt, 300, 1, 1, [anyErc20.address], "test")
+      const idx = await daoSafeMinionSummoner.daoIdx();
+      
+      // set up moloch with multiple share/loot holders and add the minion shaman 
+      await daoSafeMinionSummoner.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[1,2],[3,4]);
+
+      const resetup = daoSafeMinionSummoner.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[10,20],[3,4]);
+      
+      await expect(resetup).to.be.revertedWith("already initialized");
+
+    });
+    it("should only work for the summoner", async function () {
+      const salt = await generateNonce()
+      anyErc20 = (await AnyERC20.deploy()) as AnyErc20
+      
+      await daoSafeMinionSummoner.summonDaoMinionAndSafe("0x" + salt, 300, 1, 1, [anyErc20.address], "test")
+      const idx = await daoSafeMinionSummoner.daoIdx();
+      const summonerAsAddr1 = await daoSafeMinionSummoner.connect(addr1);
+      
+
+      const resetup = summonerAsAddr1.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[10,20],[3,4]);
+      
+      await expect(resetup).to.be.revertedWith("!summoner");
     });
   });
 });

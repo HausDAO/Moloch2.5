@@ -133,7 +133,7 @@ function addressArray(length: BigNumberish) {
   return array;
 }
 
-describe.only("Moloch DAO Summoner", function () {
+describe("Moloch DAO Summoner", function () {
   let Moloch: ContractFactory;
   let moloch: Moloch;
   let MolochSummoner: ContractFactory;
