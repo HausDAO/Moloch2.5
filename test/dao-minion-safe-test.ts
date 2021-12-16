@@ -137,7 +137,7 @@ describe("Moloch Yeeter Summoner", function () {
     )) as DaoSafeMinionSummoner;
     
   });
-  describe.only("Deployment", function () {
+  describe("Deployment", function () {
     it("Should deploy a new minion, safe and dao", async function () {
       const salt = await generateNonce()
       anyErc20 = (await AnyERC20.deploy()) as AnyErc20
