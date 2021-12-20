@@ -144,7 +144,7 @@ describe('Safe Minion Functionality', function () {
       helper = (await DaoConditionalHelper.deploy()) as DaoConditionalHelper
       molochAsAlice = await moloch.connect(alice)
       // 5 block periods, 5 period voting, 1 period grace, 0 proposal deposit, 3 dilution bound, 0 reward, 1 summoner shares
-      await moloch.init(deployerAddress, deployerAddress,  [anyErc20.address], 5, 5, 1, 0, 3, 0)
+      await moloch.init(deployerAddress,  [anyErc20.address], 5, 5, 1, 0, 3, 0)
 
       // Mint ERC20 to moloch
       await anyErc20.mint(moloch.address, 10000)
@@ -287,7 +287,7 @@ describe('Safe Minion Functionality', function () {
       this.beforeEach(async function() {
         otherMoloch = (await Moloch.deploy()) as Moloch
         otherErc20 = (await AnyERC20.deploy()) as AnyErc20
-        await otherMoloch.init(deployerAddress, deployerAddress, [anyErc20.address, otherErc20.address], 5, 5, 1, 0, 3, 0)
+        await otherMoloch.init(deployerAddress, [anyErc20.address, otherErc20.address], 5, 5, 1, 0, 3, 0)
         await anyErc20.mint(otherMoloch.address, 100)
         await otherErc20.mint(otherMoloch.address, 100)
         await otherMoloch.collectTokens(anyErc20.address)

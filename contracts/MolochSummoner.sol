@@ -268,6 +268,7 @@ contract Moloch is ReentrancyGuard {
                 _summonerLoot[i],
                 mint
             );
+            // TODO: maybe emit only once in the future
             emit Shaman(
                 _summoners[i],
                 _summonerShares[i],
@@ -328,7 +329,7 @@ contract Moloch is ReentrancyGuard {
 
 
     function init(
-        address _summoner,
+        // address _summoner,
         address _shaman,
         address[] calldata _approvedTokens,
         uint256 _periodDuration,
@@ -353,11 +354,11 @@ contract Moloch is ReentrancyGuard {
 
         shamans[_shaman] = true;
       
-
-        require(_summoner != address(0), "summoner cannot be 0");
-        members[_summoner] = Member(_summoner, 1, 0, true, 0, 0);
-        memberAddressByDelegateKey[_summoner] = _summoner;
-        totalShares++;
+        //TODO: summoner gets no shares at first
+        // require(_summoner != address(0), "summoner cannot be 0");
+        // members[_summoner] = Member(_summoner, 1, 0, true, 0, 0);
+        // memberAddressByDelegateKey[_summoner] = _summoner;
+        // totalShares++;
 
         
         require(totalShares <= MAX_NUMBER_OF_SHARES_AND_LOOT, "too many shares requested");
@@ -956,6 +957,7 @@ contract MolochSummoner is CloneFactory {
 
     event SummonComplete(
         address indexed moloch,
+        address _summoner,
         address _shaman,
         address[] tokens,
         uint256 summoningTime,
@@ -981,7 +983,7 @@ contract MolochSummoner is CloneFactory {
         Moloch moloch = Moloch(createClone(template));
 
         moloch.init(
-            _summoner,
+            // _summoner,
             _shaman,
             _approvedTokens,
             _periodDuration,
@@ -996,6 +998,7 @@ contract MolochSummoner is CloneFactory {
         daos[daoIdx] = address(moloch);
         emit SummonComplete(
             address(moloch),
+            _summoner,
             _shaman,
             _approvedTokens,
             block.timestamp,

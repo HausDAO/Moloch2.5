@@ -11,7 +11,7 @@ import { Wrapper } from "../src/types/Wrapper";
 
 use(solidity)
 
-describe("Moloch Yeeter Summoner", function () {
+describe.only("Moloch Yeeter Summoner", function () {
 
 let signers: SignerWithAddress[]
 let owner: SignerWithAddress;
@@ -97,13 +97,13 @@ let molochUhContract: Moloch;
        */
     const yeet = await yeetSummoner.summonYeet(
       newMoloch,
-      newUhMoloch,
       wrapper.address,
       ethers.utils.parseUnits("100", "ether"),
       "1622898000000", //
       "0",
       "10",
-      ethers.utils.parseUnits("1", "ether")
+      ethers.utils.parseUnits("1", "ether"),
+      "test"
     );
 
     const yeetIdx = await yeetSummoner.yeetIdx();
@@ -125,7 +125,7 @@ let molochUhContract: Moloch;
         true
       );
       let mem = await molochContract.members(owner.address);
-      expect(mem.shares.toString()).to.equal("10");
+      expect(mem.shares.toString()).to.equal("9");
       let mem2 = await molochContract.members(addr1.address);
       expect(mem2.shares.toString()).to.equal("10");
       expect(mem2.loot.toString()).to.equal("11");
@@ -190,13 +190,13 @@ let molochUhContract: Moloch;
 
       const yeet = await yeetSummoner.summonYeet(
         molochContract.address,
-        molochUhContract.address,
         wrapper.address,
         ethers.utils.parseUnits("100", "ether"),
         "1622898000", // in the past
         "0",
         "10",
-        ethers.utils.parseUnits("1", "ether")
+        ethers.utils.parseUnits("1", "ether"),
+        "test"
       );
 
       const yeetIdx = await yeetSummoner.yeetIdx();

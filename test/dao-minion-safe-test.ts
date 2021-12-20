@@ -27,7 +27,7 @@ const generateNonce = async () => {
 
 use(solidity);
 
-describe.only("Moloch Yeeter Summoner", function () {
+describe.only("Moloch MInion Safe Summoner", function () {
   let signers: SignerWithAddress[];
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
@@ -129,7 +129,6 @@ describe.only("Moloch Yeeter Summoner", function () {
       multisend.address
     )) as SafeMinionSummoner;
 
-    // console.log(safeMinionSummoner);
     
     daoSafeMinionSummoner = (await DaoSafeMinionSummoner.deploy(
       safeMinionSummoner.address,
@@ -156,7 +155,7 @@ describe.only("Moloch Yeeter Summoner", function () {
       // const dsm = await daoSafeMinionSummoner.daos(idx);
       
       // set up moloch with multiple share/loot holders and add the minion shaman 
-      await daoSafeMinionSummoner.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[1,2],[3,4]);
+      await daoSafeMinionSummoner.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[1,2],[3,4], [addr1.address, addr2.address]);
 
       // expect addr 1 and 2 to have shares and loot now and shaman is minion
     });
@@ -164,13 +163,13 @@ describe.only("Moloch Yeeter Summoner", function () {
       const salt = await generateNonce()
       anyErc20 = (await AnyERC20.deploy()) as AnyErc20
       
-      await daoSafeMinionSummoner.summonDaoMinionAndSafe("0x" + salt, 300, 1, 1, [anyErc20.address], "test")
+      await daoSafeMinionSummoner.summonDaoMinionAndSafe( "0x" + salt, 300, 1, 1, [anyErc20.address], "test")
       const idx = await daoSafeMinionSummoner.daoIdx();
       
       // set up moloch with multiple share/loot holders and add the minion shaman 
-      await daoSafeMinionSummoner.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[1,2],[3,4]);
+      await daoSafeMinionSummoner.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[1,2],[3,4], [addr1.address, addr2.address]);
 
-      const resetup = daoSafeMinionSummoner.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[10,20],[3,4]);
+      const resetup = daoSafeMinionSummoner.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[10,20],[3,4], [addr1.address, addr2.address]);
       
       await expect(resetup).to.be.revertedWith("already initialized");
 
@@ -178,13 +177,16 @@ describe.only("Moloch Yeeter Summoner", function () {
     it("should only work for the summoner", async function () {
       const salt = await generateNonce()
       anyErc20 = (await AnyERC20.deploy()) as AnyErc20
+
+      // console.log("salt", "0x" + salt);
+      
       
       await daoSafeMinionSummoner.summonDaoMinionAndSafe("0x" + salt, 300, 1, 1, [anyErc20.address], "test")
       const idx = await daoSafeMinionSummoner.daoIdx();
       const summonerAsAddr1 = await daoSafeMinionSummoner.connect(addr1);
       
 
-      const resetup = summonerAsAddr1.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[10,20],[3,4]);
+      const resetup = summonerAsAddr1.setUpDaoMinionAndSafe(idx, [addr1.address, addr2.address],[10,20],[3,4], [addr1.address, addr2.address]);
       
       await expect(resetup).to.be.revertedWith("!summoner");
     });
