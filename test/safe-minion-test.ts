@@ -24,7 +24,7 @@ const generateNonce = async () => {
 }
 
 use(solidity)
-
+//TODO: update to use DaoSafeMinionSummoner and set a share holder
 describe('Safe Minion Functionality', function () {
   let Moloch: ContractFactory
   let moloch: Moloch
@@ -172,7 +172,8 @@ describe('Safe Minion Functionality', function () {
       console.log({ threshold })
       expect(await moloch.totalGuildBankTokens()).to.equal(1)
       // expect((await moloch.members(aliceAddress)).shares).to.equal(1)
-      expect((await moloch.members(deployerAddress)).shares).to.equal(1)
+      // expect((await moloch.members(deployerAddress)).shares).to.equal(1)
+      expect((await moloch.members(deployerAddress)).shares).to.equal(0)
       expect(await gnosisSafe.isOwner(safeMinion.address)).to.equal(true)
       // expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(false)
       // expect(await gnosisSafe.isModuleEnabled(safeMinion.address)).to.equal(true)

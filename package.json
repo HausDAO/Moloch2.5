@@ -20,6 +20,7 @@
     "ethereum-waffle": "^3.0.0",
     "ethers": "^5.0.0",
     "hardhat": "^2.3.0",
+    "hardhat-contract-sizer": "^2.2.0",
     "hardhat-ethers": "^1.0.1",
     "hardhat-gas-reporter": "^1.0.4",
     "hardhat-typechain": "^0.3.5",

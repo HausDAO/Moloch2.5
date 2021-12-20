@@ -2,6 +2,7 @@ import { task, HardhatUserConfig } from "hardhat/config";
 import "@nomiclabs/hardhat-waffle";
 import "@nomiclabs/hardhat-ethers";
 import "hardhat-gas-reporter"
+import "hardhat-contract-sizer";
 import "@nomiclabs/hardhat-etherscan";
 
 import * as fs from 'fs'
