@@ -201,9 +201,16 @@ contract Moloch is ReentrancyGuard {
         uint256 loot,
         bool mint
     );
-    event SpamPrevention(address _spamPreventionAddr, uint256 _spamPrevention);
+    event SetSpamPrevention(address spamPreventionAddr, uint256 spamPrevention);
 
     event SetShaman(address indexed shaman, bool isEnabled);
+
+    event SetConfig(uint256 periodDuration,
+            uint256 votingPeriodLength,
+            uint256 gracePeriodLength,
+            uint256 proposalDeposit,
+            uint256 dilutionBound,
+            uint256 processingReward);
 
     // *******************
     // INTERNAL ACCOUNTING
@@ -319,7 +326,7 @@ contract Moloch is ReentrancyGuard {
     ) public onlyShaman {
         spamPreventionAddr = _spamPreventionAddr;
         spamPrevention = _spamPrevention;
-        emit SpamPrevention(_spamPreventionAddr, _spamPrevention);
+        emit SetSpamPrevention(_spamPreventionAddr, _spamPrevention);
         _setConfig(
             _periodDuration,
             _votingPeriodLength,
@@ -328,6 +335,12 @@ contract Moloch is ReentrancyGuard {
             dilutionBound,
             _processingReward
         );
+        emit SetConfig(_periodDuration,
+            _votingPeriodLength,
+            _gracePeriodLength,
+            _proposalDeposit,
+            dilutionBound,
+            _processingReward);
     }
 
     // allow member to do this if no active props
