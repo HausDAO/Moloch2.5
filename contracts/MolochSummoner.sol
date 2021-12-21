@@ -205,12 +205,14 @@ contract Moloch is ReentrancyGuard {
 
     event SetShaman(address indexed shaman, bool isEnabled);
 
-    event SetConfig(uint256 periodDuration,
-            uint256 votingPeriodLength,
-            uint256 gracePeriodLength,
-            uint256 proposalDeposit,
-            uint256 dilutionBound,
-            uint256 processingReward);
+    event SetConfig(
+        uint256 periodDuration,
+        uint256 votingPeriodLength,
+        uint256 gracePeriodLength,
+        uint256 proposalDeposit,
+        uint256 dilutionBound,
+        uint256 processingReward
+    );
 
     // *******************
     // INTERNAL ACCOUNTING
@@ -315,58 +317,55 @@ contract Moloch is ReentrancyGuard {
         emit SetShaman(_shaman, _enable);
     }
 
-    function setConfig(
-        address _spamPreventionAddr,
-        uint256 _spamPrevention,
-        uint256 _periodDuration,
-        uint256 _votingPeriodLength,
-        uint256 _gracePeriodLength,
-        uint256 _proposalDeposit,
-        uint256 _processingReward
-    ) public onlyShaman {
+    function setConfig(address _spamPreventionAddr, uint256 _spamPrevention)
+        public
+        onlyShaman
+    {
         spamPreventionAddr = _spamPreventionAddr;
         spamPrevention = _spamPrevention;
         emit SetSpamPrevention(_spamPreventionAddr, _spamPrevention);
-        _setConfig(
-            _periodDuration,
-            _votingPeriodLength,
-            _gracePeriodLength,
-            _proposalDeposit,
-            dilutionBound,
-            _processingReward
-        );
-        emit SetConfig(_periodDuration,
-            _votingPeriodLength,
-            _gracePeriodLength,
-            _proposalDeposit,
-            dilutionBound,
-            _processingReward);
     }
 
     // allow member to do this if no active props
     function setSharesLoot(
-        address[] memory _summoners,
-        uint256[] memory _summonerShares,
-        uint256[] memory _summonerLoot,
+        address[] memory _applicants,
+        uint256[] memory _applicantShares,
+        uint256[] memory _applicantLoot,
         bool mint
     ) public onlyShaman {
-        require(_summoners.length == _summonerShares.length, "mismatch");
-        require(_summoners.length == _summonerLoot.length, "mismatch");
-        for (uint256 i = 0; i < _summoners.length; i++) {
+        require(_applicants.length == _applicantShares.length, "mismatch");
+        require(_applicants.length == _applicantLoot.length, "mismatch");
+        for (uint256 i = 0; i < _applicants.length; i++) {
             _setSharesLoot(
-                _summoners[i],
-                _summonerShares[i],
-                _summonerLoot[i],
+                _applicants[i],
+                _applicantShares[i],
+                _applicantLoot[i],
                 mint
             );
             // TODO: maybe emit only once in the future
             emit Shaman(
-                _summoners[i],
-                _summonerShares[i],
-                _summonerLoot[i],
+                _applicants[i],
+                _applicantShares[i],
+                _applicantLoot[i],
                 mint
             );
         }
+    }
+
+    function setSingleSharesLoot(
+        address _applicant,
+        uint256 _applicantShares,
+        uint256 _applicantLoot,
+        bool mint
+    ) public onlyShaman {
+        _setSharesLoot(
+            _applicant,
+            _applicantShares,
+            _applicantLoot,
+            mint
+        );
+        // TODO: maybe emit only once in the future
+        emit Shaman(_applicant, _applicantShares, _applicantLoot, mint);
     }
 
     function _setSharesLoot(
@@ -503,7 +502,6 @@ contract Moloch is ReentrancyGuard {
             tokenWhitelist[_approvedTokens[i]] = true;
             approvedTokens.push(_approvedTokens[i]);
         }
-
     }
 
     /*****************

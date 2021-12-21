@@ -101,6 +101,13 @@ interface IMOLOCH {
         bool mint
     ) external;
 
+    function setSingleSharesLoot(
+        address,
+        uint256,
+        uint256,
+        bool
+    ) external;
+
     function setShaman(address, bool) external;
 }
 interface IWRAPPER {
@@ -121,8 +128,6 @@ contract Yeeter {
     IMOLOCH public moloch;
     address public uhMoloch;
     IWRAPPER public wrapper;
-    address[] public splits;
-    uint256[] public amounts;
 
     function init(
         address _moloch,
@@ -180,14 +185,7 @@ contract Yeeter {
 
         uint256 lootToGive = (numUnits * lootPerUnit);
 
-        uint256[] memory _summonerShares = new uint256[](1);
-         _summonerShares[0] = uint256(0);
-        uint256[] memory _summonerLoot = new uint256[](1);
-        _summonerLoot[0] = uint256(lootToGive);
-        address[] memory _msgSender = new address[](1);
-        _msgSender[0] = msg.sender;
-
-        moloch.setSharesLoot(_msgSender, _summonerShares, _summonerLoot, true);
+        moloch.setSingleSharesLoot(msg.sender, 0, lootToGive, true);
 
         moloch.collectTokens(address(wrapper));
 

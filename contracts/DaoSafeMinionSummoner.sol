@@ -127,6 +127,13 @@ interface IMOLOCH {
         bool mint
     ) external;
 
+    function setSingleSharesLoot(
+        address,
+        uint256,
+        uint256,
+        bool
+    ) external;
+
     function setShaman(address, bool) external;
 }
 
@@ -200,7 +207,7 @@ contract DaoSafeMinionSummoner {
 
         _minion = minionSummoner.summonMinionAndSafe(
             _moloch,
-            "This is the details", // TODO: fix msg
+            details,
             0,
             _saltNonce
         );
@@ -230,15 +237,22 @@ contract DaoSafeMinionSummoner {
         address[] memory _summoners,
         uint256[] memory _summonerShares,
         uint256[] memory _summonerLoot,
-        address[] memory _shamans
+        address[] memory _shamans 
     ) public {
         DSM memory dsm = daos[id];
         require(dsm.summoner == msg.sender, "!summoner");
         require(!dsm.initialized, "already initialized");
-        //TODO: if this is skipped summoner could do it anytime.
 
         IMOLOCH molochContract = IMOLOCH(dsm.moloch);
         daos[id].initialized = true;
+
+        // summoner gets atleast 1 share
+        molochContract.setSingleSharesLoot(
+            dsm.summoner,
+            1,
+            0,
+            true
+        );
         molochContract.setSharesLoot(
             _summoners,
             _summonerShares,
