@@ -162,7 +162,7 @@ let molochUhContract: Moloch;
         true
       );
     });
-    it("should take deposits for loot", async function () {
+    it("should take deposits", async function () {
       const [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
 
       /* Send funds to the yeeter which will update the loot
@@ -178,10 +178,33 @@ let molochUhContract: Moloch;
       };
       const stx1 = await owner.sendTransaction(params);
       const summonerDeposit = await yeetContract.deposits(owner.address);
+      const lootper = await yeetContract.lootPerUnit();
+      console.log('loot per', lootper.toString());
+      
       // unitPrice is 1 so should have returned the .1 and 9 should be left
       expect(summonerDeposit.toString()).to.equal(
         ethers.utils.parseUnits("10", "ether")
       );
+    });
+    it("should take deposits for loot in the dao", async function () {
+      const [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
+
+      /* Send funds to the yeeter which will update the loot
+       */
+      let params = {
+        to: yeetContract.address,
+        value: ethers.utils.parseUnits("9.1", "ether").toHexString(),
+      };
+      const stx = await owner.sendTransaction(params);
+      params = {
+        to: yeetContract.address,
+        value: ethers.utils.parseUnits("1.1", "ether").toHexString(),
+      };
+      const stx1 = await owner.sendTransaction(params);
+      const summonerDeposit = await yeetContract.deposits(owner.address);
+      const member = await molochContract.members(owner.address);
+      // 900 + 100
+      expect(member.loot.toString()).to.equal("1000")
     });
   });
   describe("Yeeter config", function () {

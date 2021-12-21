@@ -27,7 +27,7 @@ const generateNonce = async () => {
 
 use(solidity);
 
-describe.only("Moloch MInion Safe Summoner", function () {
+describe("Moloch MInion Safe Summoner", function () {
   let signers: SignerWithAddress[];
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
@@ -195,7 +195,8 @@ describe.only("Moloch MInion Safe Summoner", function () {
     it("should initialize only once", async function () {
       const salt = await generateNonce();
       anyErc20 = (await AnyERC20.deploy()) as AnyErc20;
-
+      console.log("0x" + salt);
+      
       await daoSafeMinionSummoner.summonDaoMinionAndSafe(
         "0x" + salt,
         300,

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+// import "hardhat/console.sol";
 interface IMOLOCH {
     // brief interface for moloch dao v2
 
@@ -117,16 +118,16 @@ interface IWRAPPER {
 contract Yeeter {
     event Received(address, uint256);
     mapping(address => uint256) public deposits;
-    uint256 maxTarget;
-    uint256 raiseEndTime;
-    uint256 raiseStartTime;
-    uint256 maxUnitsPerAddr; 
-    uint256 pricePerUnit;
-    uint256 lootPerUnit = 100;
+    uint256 public maxTarget;
+    uint256 public raiseEndTime;
+    uint256 public raiseStartTime;
+    uint256 public maxUnitsPerAddr; 
+    uint256 public pricePerUnit;
+    uint256 public lootPerUnit;
 
-    uint256 balance;
+
+    uint256 public balance;
     IMOLOCH public moloch;
-    address public uhMoloch;
     IWRAPPER public wrapper;
 
     function init(
@@ -136,7 +137,8 @@ contract Yeeter {
         uint256 _raiseEndTime,
         uint256 _raiseStartTime,
         uint256 _maxUnits, // per individual
-        uint256 _pricePerUnit
+        uint256 _pricePerUnit,
+        uint256 _lootPerUnit
     ) public {
         require(address(moloch) == address(0), "already init");
         moloch = IMOLOCH(_moloch);
@@ -146,6 +148,8 @@ contract Yeeter {
         raiseStartTime = _raiseStartTime;
         maxUnitsPerAddr = _maxUnits;
         pricePerUnit = _pricePerUnit;
+        lootPerUnit = _lootPerUnit;
+
     }
     receive() external payable {
         require(address(moloch) != address(0), "!init");
@@ -178,7 +182,7 @@ contract Yeeter {
             (bool success2, ) = msg.sender.call{value: msg.value - newValue}("");
             require(success2, "Transfer failed");
         }
-
+        // TODO: check
         deposits[msg.sender] = deposits[msg.sender] + newValue;
 
         balance = balance + newValue;
@@ -253,7 +257,8 @@ contract YeetSummoner is CloneFactory {
         _raiseEndTime,
         _raiseStartTime,
         _maxUnits,
-        _pricePerUnit
+        _pricePerUnit,
+        100
         );
         yeetIdx = yeetIdx + 1;
         yeeters[yeetIdx] = address(yeeter);
