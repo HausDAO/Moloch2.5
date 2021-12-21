@@ -35,13 +35,13 @@ new events
 changes to init
 * summoner and multi summoner removed. THis is set by a shaman now
 
-### Factory Factory Pattern
+### Factory Pattern
 
 The dao, minion and safe are summoned in the factory. Initially the dao has no members so is inactive, this allows the summoner (msg.sender) to have an opurtunity to summon and configure any Shamans and then multi summon any initial members with shares and loot.
 
 * Summmon DAO, Minion and safe. Factory is set as a temporary shaman. 
 * Deploy and configure any initial shamans.
-* Summoner can finish setup of the dao by adding any initial shamans and members. (one time setup, only by summoner from the factory)
+* Summoner can finish setup of the dao by adding any initial shamans and members. (one time setup, only by summoner from the factory, summoner alwyas gets 1 share)
 * setup will configure the deployed minion to be a shaman (MinionShaman) and the temporary factory shaman is disabled.
 
 ### Usecases
