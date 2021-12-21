@@ -1,6 +1,6 @@
-import { ethers } from 'hardhat'
-import { solidity } from 'ethereum-waffle'
-import { use, expect } from 'chai'
+import { ethers } from "hardhat";
+import { solidity } from "ethereum-waffle";
+import { use, expect } from "chai";
 import { ContractFactory } from "@ethersproject/contracts";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Moloch } from "../src/types/Moloch";
@@ -9,42 +9,40 @@ import { MolochSummoner } from "../src/types/MolochSummoner";
 import { YeetSummoner } from "../src/types/YeetSummoner";
 import { Wrapper } from "../src/types/Wrapper";
 
-use(solidity)
+use(solidity);
 
 describe.only("Moloch Yeeter Summoner", function () {
+  let signers: SignerWithAddress[];
+  let owner: SignerWithAddress;
+  let addr1: SignerWithAddress;
+  let addr2: SignerWithAddress;
 
-let signers: SignerWithAddress[]
-let owner: SignerWithAddress;
-let addr1: SignerWithAddress;
-let addr2: SignerWithAddress;
+  let Moloch: ContractFactory;
+  let Yeeter: ContractFactory;
+  let MolochSummoner: ContractFactory;
+  let YeetSummoner: ContractFactory;
+  let Wrapper: ContractFactory;
+  let molochSummoner: MolochSummoner;
+  let yeetSummoner: YeetSummoner;
+  let moloch: Moloch;
+  let yeeter: Yeeter;
+  let wrapper: Wrapper;
+  let yeetContractexpiered: Yeeter;
 
-let Moloch: ContractFactory;
-let Yeeter: ContractFactory;
-let MolochSummoner: ContractFactory;
-let YeetSummoner: ContractFactory;
-let Wrapper: ContractFactory;
-let molochSummoner: MolochSummoner;
-let yeetSummoner: YeetSummoner;
-let moloch: Moloch;
-let yeeter: Yeeter;
-let wrapper: Wrapper;
-let yeetContractexpiered: Yeeter;
+  let yeetContract: Yeeter;
+  let molochContract: Moloch;
+  let molochUhContract: Moloch;
 
-let yeetContract: Yeeter;
-let molochContract: Moloch;
-let molochUhContract: Moloch;
+  const zeroAddr = "0x0000000000000000000000000000000000000000";
 
   beforeEach(async function () {
-
-    signers = await ethers.getSigners()
-    owner = signers[0]
-    addr1 = signers[1]
-    addr2 = signers[2]
+    signers = await ethers.getSigners();
+    owner = signers[0];
+    addr1 = signers[1];
+    addr2 = signers[2];
 
     Moloch = await ethers.getContractFactory("Moloch");
-    MolochSummoner = await ethers.getContractFactory(
-      "MolochSummoner"
-    );
+    MolochSummoner = await ethers.getContractFactory("MolochSummoner");
     Yeeter = await ethers.getContractFactory("Yeeter");
     YeetSummoner = await ethers.getContractFactory("YeetSummoner");
     Wrapper = await ethers.getContractFactory("Wrapper");
@@ -52,10 +50,12 @@ let molochUhContract: Moloch;
     yeeter = (await Yeeter.deploy()) as Yeeter;
     moloch = (await Moloch.deploy()) as Moloch;
 
-    yeetSummoner = (await YeetSummoner.deploy(yeeter.address) ) as YeetSummoner;
+    yeetSummoner = (await YeetSummoner.deploy(yeeter.address)) as YeetSummoner;
     wrapper = (await Wrapper.deploy()) as Wrapper;
 
-    molochSummoner = (await MolochSummoner.deploy(moloch.address)) as MolochSummoner;
+    molochSummoner = (await MolochSummoner.deploy(
+      moloch.address
+    )) as MolochSummoner;
 
     /* Summon new dao 
       Summoner will have one share
@@ -77,19 +77,19 @@ let molochUhContract: Moloch;
     /* Summon new UH dao 
       Summoner will have one share
       */
-      const sum2 = await molochSummoner.summonMoloch(
-        owner.address,
-        owner.address,
-        [wrapper.address],
-        60,
-        1,
-        1,
-        0,
-        3,
-        0
-      );
-      const idx2 = await molochSummoner.daoIdx();
-      const newUhMoloch = await molochSummoner.daos(idx2);
+    const sum2 = await molochSummoner.summonMoloch(
+      owner.address,
+      owner.address,
+      [wrapper.address],
+      60,
+      1,
+      1,
+      0,
+      3,
+      0
+    );
+    const idx2 = await molochSummoner.daoIdx();
+    const newUhMoloch = await molochSummoner.daos(idx2);
 
     /* Deploy and configure the shaman(yeeter)
       max target is 100 eth
@@ -103,7 +103,9 @@ let molochUhContract: Moloch;
       "0",
       "10",
       ethers.utils.parseUnits("1", "ether"),
-      "test"
+      "test",
+      [addr2.address, zeroAddr],
+      [80, 10, 0]
     );
 
     const yeetIdx = await yeetSummoner.yeetIdx();
@@ -149,7 +151,6 @@ let molochUhContract: Moloch;
       const setShaman = await molochContract.setShaman(owner.address, false);
       const unsetShaman = molochContract.setShaman(owner.address, true);
       expect(unsetShaman).to.be.revertedWith("!shaman");
-
     });
   });
   describe("Yeeter tests", function () {
@@ -179,8 +180,8 @@ let molochUhContract: Moloch;
       const stx1 = await owner.sendTransaction(params);
       const summonerDeposit = await yeetContract.deposits(owner.address);
       const lootper = await yeetContract.lootPerUnit();
-      console.log('loot per', lootper.toString());
-      
+      console.log("loot per", lootper.toString());
+
       // unitPrice is 1 so should have returned the .1 and 9 should be left
       expect(summonerDeposit.toString()).to.equal(
         ethers.utils.parseUnits("10", "ether")
@@ -204,7 +205,7 @@ let molochUhContract: Moloch;
       const summonerDeposit = await yeetContract.deposits(owner.address);
       const member = await molochContract.members(owner.address);
       // 900 + 100
-      expect(member.loot.toString()).to.equal("1000")
+      expect(member.loot.toString()).to.equal("800");
     });
   });
   describe("Yeeter config", function () {
@@ -219,7 +220,9 @@ let molochUhContract: Moloch;
         "0",
         "10",
         ethers.utils.parseUnits("1", "ether"),
-        "test"
+        "test",
+        [addr2.address, zeroAddr],
+        [80, 10, 0]
       );
 
       const yeetIdx = await yeetSummoner.yeetIdx();

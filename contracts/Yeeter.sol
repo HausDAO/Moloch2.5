@@ -59,6 +59,7 @@ interface IMOLOCH {
     function withdrawBalance(address token, uint256 amount) external;
 
     function collectTokens(address) external;
+
     struct Proposal {
         address applicant; // the applicant who wishes to become a member - this key will be used for withdrawals (doubles as guild kick target for gkick proposals)
         address proposer; // the account that submitted the proposal (can be non-member)
@@ -111,8 +112,11 @@ interface IMOLOCH {
 
     function setShaman(address, bool) external;
 }
+
 interface IWRAPPER {
-    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint256 amount)
+        external
+        returns (bool);
 }
 
 contract Yeeter {
@@ -121,10 +125,12 @@ contract Yeeter {
     uint256 public maxTarget;
     uint256 public raiseEndTime;
     uint256 public raiseStartTime;
-    uint256 public maxUnitsPerAddr; 
+    uint256 public maxUnitsPerAddr;
     uint256 public pricePerUnit;
     uint256 public lootPerUnit;
-
+    uint256 public lootPerAfterSplit;
+    address[2] public splits;
+    uint256[3] public amounts;
 
     uint256 public balance;
     IMOLOCH public moloch;
@@ -138,7 +144,8 @@ contract Yeeter {
         uint256 _raiseStartTime,
         uint256 _maxUnits, // per individual
         uint256 _pricePerUnit,
-        uint256 _lootPerUnit
+        address[2] memory _splits, // any addition addrs for splits
+        uint256[3] memory _amounts // amounts [sender, addr1, addr2]: [87, 3, 10]
     ) public {
         require(address(moloch) == address(0), "already init");
         moloch = IMOLOCH(_moloch);
@@ -148,9 +155,12 @@ contract Yeeter {
         raiseStartTime = _raiseStartTime;
         maxUnitsPerAddr = _maxUnits;
         pricePerUnit = _pricePerUnit;
-        lootPerUnit = _lootPerUnit;
+
+        splits = _splits;
+        amounts = _amounts;
 
     }
+
     receive() external payable {
         require(address(moloch) != address(0), "!init");
         require(msg.value >= pricePerUnit, "< minimum");
@@ -161,7 +171,7 @@ contract Yeeter {
         uint256 newValue = numUnits * pricePerUnit;
         // TODO: DAO needs wrapper token whitelisted
         // TODO: DAO needs shaman whitelisted
-        
+
         // if some one yeets over max should we give them the max and return leftover.
         require(
             deposits[msg.sender] + newValue <= maxUnitsPerAddr * pricePerUnit,
@@ -172,14 +182,13 @@ contract Yeeter {
         (bool success, ) = address(wrapper).call{value: newValue}("");
         require(success, "wrap failed");
         // send to dao
-        require(
-            wrapper.transfer(address(moloch), newValue),
-            "transfer failed"
-        );
+        require(wrapper.transfer(address(moloch), newValue), "transfer failed");
 
         if (msg.value > newValue) {
             // Return the extra money to the minter.
-            (bool success2, ) = msg.sender.call{value: msg.value - newValue}("");
+            (bool success2, ) = msg.sender.call{value: msg.value - newValue}(
+                ""
+            );
             require(success2, "Transfer failed");
         }
         // TODO: check
@@ -187,9 +196,15 @@ contract Yeeter {
 
         balance = balance + newValue;
 
-        uint256 lootToGive = (numUnits * lootPerUnit);
+        uint256 lootToGive = (numUnits * amounts[0]);
 
         moloch.setSingleSharesLoot(msg.sender, 0, lootToGive, true);
+
+        for (uint256 i = 0; i < splits.length; i++) {
+            if (splits[i] != address(0)) {
+                moloch.setSingleSharesLoot(splits[i], 0, numUnits * amounts[i+1], true);
+            }
+        }
 
         moloch.collectTokens(address(wrapper));
 
@@ -201,14 +216,21 @@ contract Yeeter {
     }
 }
 
-contract CloneFactory { // implementation of eip-1167 - see https://eips.ethereum.org/EIPS/eip-1167
+contract CloneFactory {
+    // implementation of eip-1167 - see https://eips.ethereum.org/EIPS/eip-1167
     function createClone(address target) internal returns (address result) {
         bytes20 targetBytes = bytes20(target);
         assembly {
             let clone := mload(0x40)
-            mstore(clone, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
+            mstore(
+                clone,
+                0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000
+            )
             mstore(add(clone, 0x14), targetBytes)
-            mstore(add(clone, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
+            mstore(
+                add(clone, 0x28),
+                0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000
+            )
             result := create(0, clone, 0x37)
         }
     }
@@ -237,7 +259,7 @@ contract YeetSummoner is CloneFactory {
         string details
     );
 
-// details?
+    // details?
     function summonYeet(
         address _moloch,
         address payable _wrapper,
@@ -246,36 +268,38 @@ contract YeetSummoner is CloneFactory {
         uint256 _raiseStartTime,
         uint256 _maxUnits,
         uint256 _pricePerUnit,
-        string calldata _details
+        string calldata _details,
+        address[2] memory splits,
+        uint256[3] memory amounts
     ) public returns (address) {
         Yeeter yeeter = Yeeter(payable(createClone(template)));
 
         yeeter.init(
-        _moloch,
-        _wrapper,
-        _maxTarget,
-        _raiseEndTime,
-        _raiseStartTime,
-        _maxUnits,
-        _pricePerUnit,
-        100
+            _moloch,
+            _wrapper,
+            _maxTarget,
+            _raiseEndTime,
+            _raiseStartTime,
+            _maxUnits,
+            _pricePerUnit,
+            splits,
+            amounts
         );
         yeetIdx = yeetIdx + 1;
         yeeters[yeetIdx] = address(yeeter);
 
         emit SummonYeetComplete(
-        _moloch,
-        address(yeeter),
-        _wrapper,
-        _maxTarget,
-        _raiseEndTime,
-        _raiseStartTime,
-        _maxUnits,
-        _pricePerUnit,
-        _details
+            _moloch,
+            address(yeeter),
+            _wrapper,
+            _maxTarget,
+            _raiseEndTime,
+            _raiseStartTime,
+            _maxUnits,
+            _pricePerUnit,
+            _details
         );
 
         return address(yeeter);
     }
-
 }
