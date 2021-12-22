@@ -90,6 +90,10 @@ interface IERC20 {
     );
 }
 
+interface IRAGEDAEMON {
+    function afterRage(address, uint256, uint256) external returns (bool);
+}
+
 contract Moloch is ReentrancyGuard {
     /***************
     GLOBAL CONSTANTS
@@ -110,6 +114,7 @@ contract Moloch is ReentrancyGuard {
 
     // can have multiple shamans
     mapping(address => bool) public shamans;
+    address rageDaemon;
 
     // HARD-CODED LIMITS
     // These numbers are quite arbitrary; they are small enough to avoid overflows when doing calculations
@@ -316,6 +321,11 @@ contract Moloch is ReentrancyGuard {
     function setShaman(address _shaman, bool _enable) public onlyShaman {
         shamans[_shaman] = _enable;
         emit SetShaman(_shaman, _enable);
+    }
+
+    function setRageDaemon(address _daemon) public onlyShaman {
+        rageDaemon = _daemon;
+        //emit SetShaman(_shaman, _enable);
     }
 
     function setConfig(address _spamPreventionAddr, uint256 _spamPrevention)
@@ -1128,6 +1138,11 @@ contract Moloch is ReentrancyGuard {
                     approvedTokens[i]
                 ] += amountToRagequit;
             }
+        }
+
+        if(rageDaemon != address(0)){
+            IRAGEDAEMON rd = IRAGEDAEMON(rageDaemon);
+            rd.afterRage(memberAddress, sharesToBurn, lootToBurn);
         }
 
         emit Ragequit(msg.sender, sharesToBurn, lootToBurn);
