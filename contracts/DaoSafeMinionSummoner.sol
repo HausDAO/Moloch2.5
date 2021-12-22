@@ -188,7 +188,7 @@ contract DaoSafeMinionSummoner {
         uint256 _periodDuration,
         uint256 _votingPeriodLength,
         uint256 _gracePeriodLength,
-        address[] calldata _approvedTokens,
+        address[] calldata _approvedTokens, // TODO: should this just be the native wrapper
         string calldata details
     ) external returns (address _moloch, address _minion) {
         // Deploy new minion but do not set it up yet

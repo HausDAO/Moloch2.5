@@ -202,10 +202,10 @@ describe.only("Moloch Yeeter Summoner", function () {
       const stx1 = await addr1.sendTransaction(params);
       const summonerDeposit = await yeetContract.deposits(addr1.address);
       const member = await molochContract.members(addr1.address);
-      const ownerMember = await molochContract.members(owner.address);
+      const factoryOwnerMember = await molochContract.members(owner.address);
       // 900 + 100
       expect(member.loot.toString()).to.equal("1000");
-      expect(ownerMember.loot.toString()).to.equal("30");
+      expect(factoryOwnerMember.loot.toString()).to.equal("30");
     });
   });
   describe("Yeeter config", function () {
