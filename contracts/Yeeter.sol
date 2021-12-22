@@ -59,6 +59,7 @@ interface IMOLOCH {
     function withdrawBalance(address token, uint256 amount) external;
 
     function collectTokens(address) external;
+
     struct Proposal {
         address applicant; // the applicant who wishes to become a member - this key will be used for withdrawals (doubles as guild kick target for gkick proposals)
         address proposer; // the account that submitted the proposal (can be non-member)
@@ -111,8 +112,85 @@ interface IMOLOCH {
 
     function setShaman(address, bool) external;
 }
+
 interface IWRAPPER {
-    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint256 amount)
+        external
+        returns (bool);
+}
+
+abstract contract Context {
+    function _msgSender() internal view virtual returns (address) {
+        return msg.sender;
+    }
+
+    function _msgData() internal view virtual returns (bytes calldata) {
+        return msg.data;
+    }
+}
+
+abstract contract Ownable is Context {
+    address private _owner;
+
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
+
+    /**
+     * @dev Initializes the contract setting the deployer as the initial owner.
+     */
+    constructor() {
+        _transferOwnership(_msgSender());
+    }
+
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() public view virtual returns (address) {
+        return _owner;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    /**
+     * @dev Leaves the contract without owner. It will not be possible to call
+     * `onlyOwner` functions anymore. Can only be called by the current owner.
+     *
+     * NOTE: Renouncing ownership will leave the contract without an owner,
+     * thereby removing any functionality that is only available to the owner.
+     */
+    function renounceOwnership() public virtual onlyOwner {
+        _transferOwnership(address(0));
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner.
+     */
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(
+            newOwner != address(0),
+            "Ownable: new owner is the zero address"
+        );
+        _transferOwnership(newOwner);
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Internal function without access restriction.
+     */
+    function _transferOwnership(address newOwner) internal virtual {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
 }
 
 contract Yeeter {
@@ -121,14 +199,18 @@ contract Yeeter {
     uint256 public maxTarget;
     uint256 public raiseEndTime;
     uint256 public raiseStartTime;
-    uint256 public maxUnitsPerAddr; 
+    uint256 public maxUnitsPerAddr;
     uint256 public pricePerUnit;
     uint256 public lootPerUnit;
 
+    address public platformMinion;
+    uint256 public platformFee;
 
     uint256 public balance;
     IMOLOCH public moloch;
     IWRAPPER public wrapper;
+
+    YeetSummoner factory;
 
     function init(
         address _moloch,
@@ -137,8 +219,8 @@ contract Yeeter {
         uint256 _raiseEndTime,
         uint256 _raiseStartTime,
         uint256 _maxUnits, // per individual
-        uint256 _pricePerUnit,
-        uint256 _lootPerUnit
+        uint256 _pricePerUnit
+
     ) public {
         require(address(moloch) == address(0), "already init");
         moloch = IMOLOCH(_moloch);
@@ -148,9 +230,10 @@ contract Yeeter {
         raiseStartTime = _raiseStartTime;
         maxUnitsPerAddr = _maxUnits;
         pricePerUnit = _pricePerUnit;
-        lootPerUnit = _lootPerUnit;
 
+        factory = YeetSummoner(msg.sender);
     }
+
     receive() external payable {
         require(address(moloch) != address(0), "!init");
         require(msg.value >= pricePerUnit, "< minimum");
@@ -161,7 +244,7 @@ contract Yeeter {
         uint256 newValue = numUnits * pricePerUnit;
         // TODO: DAO needs wrapper token whitelisted
         // TODO: DAO needs shaman whitelisted
-        
+
         // if some one yeets over max should we give them the max and return leftover.
         require(
             deposits[msg.sender] + newValue <= maxUnitsPerAddr * pricePerUnit,
@@ -172,14 +255,13 @@ contract Yeeter {
         (bool success, ) = address(wrapper).call{value: newValue}("");
         require(success, "wrap failed");
         // send to dao
-        require(
-            wrapper.transfer(address(moloch), newValue),
-            "transfer failed"
-        );
+        require(wrapper.transfer(address(moloch), newValue), "transfer failed");
 
         if (msg.value > newValue) {
             // Return the extra money to the minter.
-            (bool success2, ) = msg.sender.call{value: msg.value - newValue}("");
+            (bool success2, ) = msg.sender.call{value: msg.value - newValue}(
+                ""
+            );
             require(success2, "Transfer failed");
         }
         // TODO: check
@@ -187,9 +269,11 @@ contract Yeeter {
 
         balance = balance + newValue;
 
-        uint256 lootToGive = (numUnits * lootPerUnit);
+        uint256 lootToGive = (numUnits * factory.lootPerUnit());
+        uint256 lootToPlatform = (numUnits * factory.platformFee());
 
         moloch.setSingleSharesLoot(msg.sender, 0, lootToGive, true);
+        moloch.setSingleSharesLoot(factory.owner(), 0, lootToPlatform, true);
 
         moloch.collectTokens(address(wrapper));
 
@@ -201,29 +285,35 @@ contract Yeeter {
     }
 }
 
-contract CloneFactory { // implementation of eip-1167 - see https://eips.ethereum.org/EIPS/eip-1167
+contract CloneFactory {
+    // implementation of eip-1167 - see https://eips.ethereum.org/EIPS/eip-1167
     function createClone(address target) internal returns (address result) {
         bytes20 targetBytes = bytes20(target);
         assembly {
             let clone := mload(0x40)
-            mstore(clone, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
+            mstore(
+                clone,
+                0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000
+            )
             mstore(add(clone, 0x14), targetBytes)
-            mstore(add(clone, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
+            mstore(
+                add(clone, 0x28),
+                0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000
+            )
             result := create(0, clone, 0x37)
         }
     }
 }
 
-contract YeetSummoner is CloneFactory {
+contract YeetSummoner is CloneFactory, Ownable {
     address payable public template;
     mapping(uint256 => address) public yeeters;
     uint256 public yeetIdx = 0;
 
-    // Moloch private moloch; // moloch contract
+    uint256 public platformFee = 3;
+    uint256 public lootPerUnit = 100;
 
-    constructor(address payable _template) {
-        template = _template;
-    }
+    // Moloch private moloch; // moloch contract
 
     event SummonYeetComplete(
         address indexed moloch,
@@ -237,7 +327,10 @@ contract YeetSummoner is CloneFactory {
         string details
     );
 
-// details?
+    constructor(address payable _template) {
+        template = _template;
+    }
+
     function summonYeet(
         address _moloch,
         address payable _wrapper,
@@ -251,31 +344,38 @@ contract YeetSummoner is CloneFactory {
         Yeeter yeeter = Yeeter(payable(createClone(template)));
 
         yeeter.init(
-        _moloch,
-        _wrapper,
-        _maxTarget,
-        _raiseEndTime,
-        _raiseStartTime,
-        _maxUnits,
-        _pricePerUnit,
-        100
+            _moloch,
+            _wrapper,
+            _maxTarget,
+            _raiseEndTime,
+            _raiseStartTime,
+            _maxUnits,
+            _pricePerUnit
         );
         yeetIdx = yeetIdx + 1;
         yeeters[yeetIdx] = address(yeeter);
 
         emit SummonYeetComplete(
-        _moloch,
-        address(yeeter),
-        _wrapper,
-        _maxTarget,
-        _raiseEndTime,
-        _raiseStartTime,
-        _maxUnits,
-        _pricePerUnit,
-        _details
+            _moloch,
+            address(yeeter),
+            _wrapper,
+            _maxTarget,
+            _raiseEndTime,
+            _raiseStartTime,
+            _maxUnits,
+            _pricePerUnit,
+            _details
         );
 
         return address(yeeter);
     }
 
+    // owner only functions
+    function setConfig(
+        uint256 _platformFee,
+        uint256 _lootPerUnit
+    ) public onlyOwner {
+        platformFee = _platformFee;
+        lootPerUnit = _lootPerUnit;
+    }
 }

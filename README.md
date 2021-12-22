@@ -47,6 +47,12 @@ The dao, minion and safe are summoned in the factory. Initially the dao has no m
 ### Usecases
 Shamans are very flexible and have many usecases. Because they are so powerfull they could really bork things up. so becareful
 * Yeeter.sol is an example of a shaman. With the yeeter someone could send a native token to an address and receive loot in return.
+* Shaman Minion. A minion can be used to make proposals to alter the shares directly.
+* Token Grapling. a token (erc20 or 721) transfer hooks could be used to alter the shares, making shares transferable.
+* Sourcecred coordinape shaman
+* Clone dao shaman. Any members from one dao could automatically join a new dao.
+* erc20 Yeeter
+* Algorithmic Stable Shares Shaman
 ## Credits
 
 Based on the original work done by RaidGuild at [Moloch-Minion](https://github.com/raid-guild/moloch-minion/)
