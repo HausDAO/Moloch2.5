@@ -103,9 +103,7 @@ describe.only("Moloch Yeeter Summoner", function () {
       "0",
       "10",
       ethers.utils.parseUnits("1", "ether"),
-      "test",
-      [addr2.address, zeroAddr],
-      [80, 10, 0]
+      "test"
     );
 
     const yeetIdx = await yeetSummoner.yeetIdx();
@@ -196,16 +194,18 @@ describe.only("Moloch Yeeter Summoner", function () {
         to: yeetContract.address,
         value: ethers.utils.parseUnits("9.1", "ether").toHexString(),
       };
-      const stx = await owner.sendTransaction(params);
+      const stx = await addr1.sendTransaction(params);
       params = {
         to: yeetContract.address,
         value: ethers.utils.parseUnits("1.1", "ether").toHexString(),
       };
-      const stx1 = await owner.sendTransaction(params);
-      const summonerDeposit = await yeetContract.deposits(owner.address);
-      const member = await molochContract.members(owner.address);
+      const stx1 = await addr1.sendTransaction(params);
+      const summonerDeposit = await yeetContract.deposits(addr1.address);
+      const member = await molochContract.members(addr1.address);
+      const ownerMember = await molochContract.members(owner.address);
       // 900 + 100
-      expect(member.loot.toString()).to.equal("800");
+      expect(member.loot.toString()).to.equal("1000");
+      expect(ownerMember.loot.toString()).to.equal("30");
     });
   });
   describe("Yeeter config", function () {
@@ -220,9 +220,7 @@ describe.only("Moloch Yeeter Summoner", function () {
         "0",
         "10",
         ethers.utils.parseUnits("1", "ether"),
-        "test",
-        [addr2.address, zeroAddr],
-        [80, 10, 0]
+        "test"
       );
 
       const yeetIdx = await yeetSummoner.yeetIdx();

@@ -119,6 +119,80 @@ interface IWRAPPER {
         returns (bool);
 }
 
+abstract contract Context {
+    function _msgSender() internal view virtual returns (address) {
+        return msg.sender;
+    }
+
+    function _msgData() internal view virtual returns (bytes calldata) {
+        return msg.data;
+    }
+}
+
+abstract contract Ownable is Context {
+    address private _owner;
+
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
+
+    /**
+     * @dev Initializes the contract setting the deployer as the initial owner.
+     */
+    constructor() {
+        _transferOwnership(_msgSender());
+    }
+
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() public view virtual returns (address) {
+        return _owner;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    /**
+     * @dev Leaves the contract without owner. It will not be possible to call
+     * `onlyOwner` functions anymore. Can only be called by the current owner.
+     *
+     * NOTE: Renouncing ownership will leave the contract without an owner,
+     * thereby removing any functionality that is only available to the owner.
+     */
+    function renounceOwnership() public virtual onlyOwner {
+        _transferOwnership(address(0));
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner.
+     */
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(
+            newOwner != address(0),
+            "Ownable: new owner is the zero address"
+        );
+        _transferOwnership(newOwner);
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Internal function without access restriction.
+     */
+    function _transferOwnership(address newOwner) internal virtual {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+}
+
 contract Yeeter {
     event Received(address, uint256);
     mapping(address => uint256) public deposits;
@@ -128,13 +202,15 @@ contract Yeeter {
     uint256 public maxUnitsPerAddr;
     uint256 public pricePerUnit;
     uint256 public lootPerUnit;
-    uint256 public lootPerAfterSplit;
-    address[2] public splits;
-    uint256[3] public amounts;
+
+    address public platformMinion;
+    uint256 public platformFee;
 
     uint256 public balance;
     IMOLOCH public moloch;
     IWRAPPER public wrapper;
+
+    YeetSummoner factory;
 
     function init(
         address _moloch,
@@ -143,9 +219,8 @@ contract Yeeter {
         uint256 _raiseEndTime,
         uint256 _raiseStartTime,
         uint256 _maxUnits, // per individual
-        uint256 _pricePerUnit,
-        address[2] memory _splits, // any addition addrs for splits
-        uint256[3] memory _amounts // amounts [sender, addr1, addr2]: [87, 3, 10]
+        uint256 _pricePerUnit
+
     ) public {
         require(address(moloch) == address(0), "already init");
         moloch = IMOLOCH(_moloch);
@@ -156,9 +231,7 @@ contract Yeeter {
         maxUnitsPerAddr = _maxUnits;
         pricePerUnit = _pricePerUnit;
 
-        splits = _splits;
-        amounts = _amounts;
-
+        factory = YeetSummoner(msg.sender);
     }
 
     receive() external payable {
@@ -196,15 +269,11 @@ contract Yeeter {
 
         balance = balance + newValue;
 
-        uint256 lootToGive = (numUnits * amounts[0]);
+        uint256 lootToGive = (numUnits * factory.lootPerUnit());
+        uint256 lootToPlatform = (numUnits * factory.platformFee());
 
         moloch.setSingleSharesLoot(msg.sender, 0, lootToGive, true);
-
-        for (uint256 i = 0; i < splits.length; i++) {
-            if (splits[i] != address(0)) {
-                moloch.setSingleSharesLoot(splits[i], 0, numUnits * amounts[i+1], true);
-            }
-        }
+        moloch.setSingleSharesLoot(factory.owner(), 0, lootToPlatform, true);
 
         moloch.collectTokens(address(wrapper));
 
@@ -236,16 +305,15 @@ contract CloneFactory {
     }
 }
 
-contract YeetSummoner is CloneFactory {
+contract YeetSummoner is CloneFactory, Ownable {
     address payable public template;
     mapping(uint256 => address) public yeeters;
     uint256 public yeetIdx = 0;
 
-    // Moloch private moloch; // moloch contract
+    uint256 public platformFee = 3;
+    uint256 public lootPerUnit = 100;
 
-    constructor(address payable _template) {
-        template = _template;
-    }
+    // Moloch private moloch; // moloch contract
 
     event SummonYeetComplete(
         address indexed moloch,
@@ -259,7 +327,10 @@ contract YeetSummoner is CloneFactory {
         string details
     );
 
-    // details?
+    constructor(address payable _template) {
+        template = _template;
+    }
+
     function summonYeet(
         address _moloch,
         address payable _wrapper,
@@ -268,9 +339,7 @@ contract YeetSummoner is CloneFactory {
         uint256 _raiseStartTime,
         uint256 _maxUnits,
         uint256 _pricePerUnit,
-        string calldata _details,
-        address[2] memory splits,
-        uint256[3] memory amounts
+        string calldata _details
     ) public returns (address) {
         Yeeter yeeter = Yeeter(payable(createClone(template)));
 
@@ -281,9 +350,7 @@ contract YeetSummoner is CloneFactory {
             _raiseEndTime,
             _raiseStartTime,
             _maxUnits,
-            _pricePerUnit,
-            splits,
-            amounts
+            _pricePerUnit
         );
         yeetIdx = yeetIdx + 1;
         yeeters[yeetIdx] = address(yeeter);
@@ -301,5 +368,14 @@ contract YeetSummoner is CloneFactory {
         );
 
         return address(yeeter);
+    }
+
+    // owner only functions
+    function setConfig(
+        uint256 _platformFee,
+        uint256 _lootPerUnit
+    ) public onlyOwner {
+        platformFee = _platformFee;
+        lootPerUnit = _lootPerUnit;
     }
 }
