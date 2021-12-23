@@ -1262,8 +1262,9 @@ contract Moloch is ReentrancyGuard {
         view
         returns (bool)
     {
+        // TODO: fixed to allow ragequit before any proposals, write test
         require(
-            highestIndexYesVote < proposalQueue.length,
+            highestIndexYesVote < proposalQueue.length || proposalQueue.length == 0,
             "proposal does not exist"
         );
         return proposals[proposalQueue[highestIndexYesVote]].flags[1];
