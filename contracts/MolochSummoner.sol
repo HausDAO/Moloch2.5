@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+// import "hardhat/console.sol";
 /**
  * @dev Contract module that helps prevent reentrant calls to a function.
  *
@@ -1130,7 +1131,7 @@ contract Moloch is ReentrancyGuard {
             }
         }
 
-        emit Ragequit(msg.sender, sharesToBurn, lootToBurn);
+        emit Ragequit(memberAddress, sharesToBurn, lootToBurn);
     }
 
     function ragekick(address memberToKick) public nonReentrant {
@@ -1262,10 +1263,15 @@ contract Moloch is ReentrancyGuard {
         view
         returns (bool)
     {
+        // TODO: fixed to allow ragequit before any proposals, write test
+        if(proposalQueue.length == 0){
+            return true;
+        }
         require(
             highestIndexYesVote < proposalQueue.length,
             "proposal does not exist"
         );
+
         return proposals[proposalQueue[highestIndexYesVote]].flags[1];
     }
 
