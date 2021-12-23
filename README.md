@@ -48,7 +48,7 @@ The dao, minion and safe are summoned in the factory. Initially the dao has no m
 Shamans are very flexible and have many use cases. Because they are so powerful, they could really bork things up, so be careful!
 
 #### Current Examples 
-* [**Yeeter.sol**](/contracts/yeeter.sol) is an example of a Shaman. With the yeeter someone could send a native token to an address and receive loot in return.
+* [**Yeeter.sol**](contracts/yeeter.sol) is an example of a Shaman. With the yeeter someone could send a native token to an address and receive loot in return.
 * **Shaman Minion**: A minion can be used to make proposals to alter the shares directly.
 
 #### Other Shaman Ideas
