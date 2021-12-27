@@ -2,7 +2,7 @@
 # Moloch V2.5
 Summon All the Minions
 
-## Safe Minion Deployments
+## Deployments
 
 Rinkeby: 
 
