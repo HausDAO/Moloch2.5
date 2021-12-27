@@ -213,7 +213,7 @@ describe.only("Moloch MInion Safe Summoner", function () {
         [addr1.address, addr2.address],
         [1, 2],
         [3, 4],
-        [addr1.address, addr2.address]
+        [owner.address, addr2.address]
       );
 
       // expect summoners to have shares and loot
@@ -227,8 +227,12 @@ describe.only("Moloch MInion Safe Summoner", function () {
       expect(addr1Member.shares.toString()).to.equal("1");
       expect(addr1Member.loot.toString()).to.equal("3");
 
+      // has to be a contract
+      await molochContract.setRageDaemon(dsm.moloch);
+
       const ownerRage = await molochContract.ragequit(1,0);
-      // expect(ownerMember.shares.toString()).to.equal("0");
+      const ownerMemberNew = await molochContract.members(owner.address);
+      expect(ownerMemberNew.shares.toString()).to.equal("0");
 
     });
     it("should initialize only once", async function () {
