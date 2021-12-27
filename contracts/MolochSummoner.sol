@@ -218,6 +218,7 @@ contract Moloch is ReentrancyGuard {
         uint256 dilutionBound,
         uint256 processingReward
     );
+    event Log(string message);
 
     // *******************
     // INTERNAL ACCOUNTING
@@ -1142,7 +1143,12 @@ contract Moloch is ReentrancyGuard {
 
         if(rageDaemon != address(0)){
             IRAGEDAEMON rd = IRAGEDAEMON(rageDaemon);
-            rd.afterRage(memberAddress, sharesToBurn, lootToBurn);
+
+            try rd.afterRage(memberAddress, sharesToBurn, lootToBurn) {
+                emit Log("rage deamon call success");
+            } catch {
+                emit Log("external call failed");
+            }
         }
 
         emit Ragequit(msg.sender, sharesToBurn, lootToBurn);

@@ -27,7 +27,7 @@ const generateNonce = async () => {
 
 use(solidity);
 
-describe("Moloch MInion Safe Summoner", function () {
+describe.only("Moloch MInion Safe Summoner", function () {
   let signers: SignerWithAddress[];
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
@@ -191,6 +191,45 @@ describe("Moloch MInion Safe Summoner", function () {
       const addr1Member = await molochContract.members(addr1.address);
       expect(addr1Member.shares.toString()).to.equal("1");
       expect(addr1Member.loot.toString()).to.equal("3");
+    });
+    it("should set up the dao with multiple summoners and shamans and allow ragequit", async function () {
+      const salt = await generateNonce();
+      anyErc20 = (await AnyERC20.deploy()) as AnyErc20;
+
+      await daoSafeMinionSummoner.summonDaoMinionAndSafe(
+        "0x" + salt,
+        300,
+        1,
+        1,
+        [anyErc20.address],
+        "test"
+      );
+      const idx = await daoSafeMinionSummoner.daoIdx();
+      const dsm = await daoSafeMinionSummoner.daos(idx);
+
+      // set up moloch with multiple share/loot holders and add the minion shaman
+      await daoSafeMinionSummoner.setUpDaoMinionAndSafe(
+        idx,
+        [addr1.address, addr2.address],
+        [1, 2],
+        [3, 4],
+        [addr1.address, addr2.address]
+      );
+
+      // expect summoners to have shares and loot
+      // expect summoner to have 1 share
+      const molochContract = (await Moloch.attach(dsm.moloch)) as Moloch;
+      const ownerMember = await molochContract.members(owner.address);
+      expect(parseInt(ownerMember.shares.toString())).to.be.greaterThanOrEqual(1);
+      expect(ownerMember.loot.toString()).to.equal("0");
+
+      const addr1Member = await molochContract.members(addr1.address);
+      expect(addr1Member.shares.toString()).to.equal("1");
+      expect(addr1Member.loot.toString()).to.equal("3");
+
+      const ownerRage = await molochContract.ragequit(1,0);
+      // expect(ownerMember.shares.toString()).to.equal("0");
+
     });
     it("should initialize only once", async function () {
       const salt = await generateNonce();
