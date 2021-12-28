@@ -4,7 +4,8 @@ import "./MolochSummoner.sol";
 import "./Wrapper.sol";
 
 contract Yeeter {
-    event Received(address, uint256);
+    event Received(address contributorAddress, uint256 amount);
+
     mapping(address => uint256) public deposits;
     uint256 maxTarget;
     uint256 raiseEndTime;
