@@ -194,7 +194,8 @@ abstract contract Ownable is Context {
 }
 
 contract Yeeter {
-    event Received(address, uint256);
+    event Received(address contributorAddress, uint256 amount);
+
     mapping(address => uint256) public deposits;
     uint256 public maxTarget;
     uint256 public raiseEndTime;
