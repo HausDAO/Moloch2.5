@@ -127,19 +127,33 @@ interface IMOLOCH {
         bool mint
     ) external;
 
+    function setSingleSharesLoot(
+        address,
+        uint256,
+        uint256,
+        bool
+    ) external;
+
     function setShaman(address, bool) external;
 }
 
-/// @title SafeMinionSummoner - Factory contract to depoy new Minions and Safes
+interface IMINION {
+    function avatar() external view returns (address);
+}
+
+/// @title SafeMinionSummoner - Factory contract to depoy new DAO Minions and Safes
 /// @dev Can deploy a minion and a new safe, or just a minion to be attached to an existing safe
-/// @author Isaac Patka, Dekan Brown
+/// @author Dekan Brown
 contract DaoSafeMinionSummoner {
     IMinionFactory public minionSummoner;
     IMolochFactory public daoSummoner;
 
     struct DSM {
+        address summoner;
         address moloch;
         address minion;
+        address avatar;
+        bool initialized;
     }
 
     mapping(uint256 => DSM) public daos;
@@ -148,21 +162,19 @@ contract DaoSafeMinionSummoner {
     event SummonComplete(
         address summoner,
         address indexed moloch,
-        address _minion,
-        address[] tokens,
-        uint256 periodDuration,
-        uint256 votingPeriodLength,
-        uint256 gracePeriodLength,
+        address minion,
+        address avatar,
         string details
     );
 
     event SetupComplete(
-            address indexed _moloch,
-            address _shaman,
-            address[] _summoners,
-            uint256[] _summonerShares,
-            uint256[] _summonerLoot
-        );
+        address indexed moloch,
+        address shaman,
+        address[] extraShamans,
+        address[] summoners,
+        uint256[] summonerShares,
+        uint256[] summonerLoot
+    );
 
     constructor(address _minionSummoner, address _daoSummoner) {
         minionSummoner = IMinionFactory(_minionSummoner);
@@ -171,17 +183,18 @@ contract DaoSafeMinionSummoner {
 
     /// @dev Function to summon minion and configure with a new safe and a dao
     function summonDaoMinionAndSafe(
+        // address _summoner,
         uint256 _saltNonce,
         uint256 _periodDuration,
         uint256 _votingPeriodLength,
         uint256 _gracePeriodLength,
-        address[] calldata _approvedTokens,
+        address[] calldata _approvedTokens, // TODO: should this just be the native wrapper
         string calldata details
     ) external returns (address _moloch, address _minion) {
         // Deploy new minion but do not set it up yet
 
         _moloch = daoSummoner.summonMoloch(
-            msg.sender, // summoner
+            msg.sender, // summoner TODO: do we still need this
             address(this), // _shaman,
             _approvedTokens,
             _periodDuration,
@@ -194,45 +207,68 @@ contract DaoSafeMinionSummoner {
 
         _minion = minionSummoner.summonMinionAndSafe(
             _moloch,
-            "This is the details",
+            details,
             0,
             _saltNonce
         );
 
+        IMINION minionContract = IMINION(_minion);
+
         daoIdx = daoIdx + 1;
-        daos[daoIdx] = DSM(_moloch, _minion);
-        emit SummonComplete(
-            msg.sender, // summoner
+        daos[daoIdx] = DSM(
+            msg.sender,
             _moloch,
             _minion,
-            _approvedTokens,
-            _periodDuration,
-            _votingPeriodLength,
-            _gracePeriodLength,
+            minionContract.avatar(),
+            false
+        );
+
+        emit SummonComplete(
+            msg.sender,
+            _moloch,
+            _minion,
+            minionContract.avatar(),
             details
         );
     }
 
     function setUpDaoMinionAndSafe(
-        address _moloch,
-        address _minion,
+        uint256 id,
         address[] memory _summoners,
         uint256[] memory _summonerShares,
-        uint256[] memory _summonerLoot
+        uint256[] memory _summonerLoot,
+        address[] memory _shamans 
     ) public {
-        IMOLOCH molochContract = IMOLOCH(_moloch);
+        DSM memory dsm = daos[id];
+        require(dsm.summoner == msg.sender, "!summoner");
+        require(!dsm.initialized, "already initialized");
 
+        IMOLOCH molochContract = IMOLOCH(dsm.moloch);
+        daos[id].initialized = true;
+
+        // summoner gets atleast 1 share
+        molochContract.setSingleSharesLoot(
+            dsm.summoner,
+            1,
+            0,
+            true
+        );
         molochContract.setSharesLoot(
             _summoners,
             _summonerShares,
             _summonerLoot,
             true
         );
-        molochContract.setShaman(_minion, true);
         
+        molochContract.setShaman(dsm.minion, true);
+        for (uint256 i = 0; i < _shamans.length; i++) {
+            molochContract.setShaman(_shamans[i], true);
+        }
+        molochContract.setShaman(address(this), false);
         emit SetupComplete(
-            _moloch,
-            _minion,
+            dsm.moloch,
+            dsm.minion,
+            _shamans,
             _summoners,
             _summonerShares,
             _summonerLoot

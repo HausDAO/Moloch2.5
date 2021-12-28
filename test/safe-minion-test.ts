@@ -24,7 +24,7 @@ const generateNonce = async () => {
 }
 
 use(solidity)
-
+//TODO: update to use DaoSafeMinionSummoner and set a share holder
 describe('Safe Minion Functionality', function () {
   let Moloch: ContractFactory
   let moloch: Moloch
@@ -144,7 +144,7 @@ describe('Safe Minion Functionality', function () {
       helper = (await DaoConditionalHelper.deploy()) as DaoConditionalHelper
       molochAsAlice = await moloch.connect(alice)
       // 5 block periods, 5 period voting, 1 period grace, 0 proposal deposit, 3 dilution bound, 0 reward, 1 summoner shares
-      await moloch.init(deployerAddress, deployerAddress,  [anyErc20.address], 5, 5, 1, 0, 3, 0)
+      await moloch.init(deployerAddress,  [anyErc20.address], 5, 5, 1, 0, 3, 0)
 
       // Mint ERC20 to moloch
       await anyErc20.mint(moloch.address, 10000)
@@ -172,7 +172,8 @@ describe('Safe Minion Functionality', function () {
       console.log({ threshold })
       expect(await moloch.totalGuildBankTokens()).to.equal(1)
       // expect((await moloch.members(aliceAddress)).shares).to.equal(1)
-      expect((await moloch.members(deployerAddress)).shares).to.equal(1)
+      // expect((await moloch.members(deployerAddress)).shares).to.equal(1)
+      expect((await moloch.members(deployerAddress)).shares).to.equal(0)
       expect(await gnosisSafe.isOwner(safeMinion.address)).to.equal(true)
       // expect(await gnosisSafe.isModuleEnabled(deployerAddress)).to.equal(false)
       // expect(await gnosisSafe.isModuleEnabled(safeMinion.address)).to.equal(true)
@@ -287,7 +288,7 @@ describe('Safe Minion Functionality', function () {
       this.beforeEach(async function() {
         otherMoloch = (await Moloch.deploy()) as Moloch
         otherErc20 = (await AnyERC20.deploy()) as AnyErc20
-        await otherMoloch.init(deployerAddress, deployerAddress, [anyErc20.address, otherErc20.address], 5, 5, 1, 0, 3, 0)
+        await otherMoloch.init(deployerAddress, [anyErc20.address, otherErc20.address], 5, 5, 1, 0, 3, 0)
         await anyErc20.mint(otherMoloch.address, 100)
         await otherErc20.mint(otherMoloch.address, 100)
         await otherMoloch.collectTokens(anyErc20.address)

@@ -9,3 +9,5 @@ mnemonic.txt
 src/types/
 
 *.txt
+
+*.DS_Store
