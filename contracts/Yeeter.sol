@@ -194,8 +194,7 @@ abstract contract Ownable is Context {
 }
 
 contract Yeeter {
-    event Received(address indexed contributorAddress, uint256 amount, address moloch);
-
+    event Received(address contributorAddress, uint256 amount, address moloch);
     mapping(address => uint256) public deposits;
     uint256 public maxTarget;
     uint256 public raiseEndTime;
@@ -203,6 +202,7 @@ contract Yeeter {
     uint256 public maxUnitsPerAddr;
     uint256 public pricePerUnit;
     uint256 public lootPerUnit;
+    bool public initialized;
 
     uint256 public platformFee;
 
@@ -222,7 +222,8 @@ contract Yeeter {
         uint256 _pricePerUnit
 
     ) public {
-        require(address(moloch) == address(0), "already init");
+        require(!initialized, "already initialized");
+        initialized = true;
         moloch = IMOLOCH(_moloch);
         wrapper = IWRAPPER(_wrapper);
         maxTarget = _maxTarget;
@@ -232,6 +233,10 @@ contract Yeeter {
         pricePerUnit = _pricePerUnit;
 
         factory = YeetSummoner(msg.sender);
+    }
+
+    function initTemplate() public {
+        initialized = true;
     }
 
     receive() external payable {
@@ -277,6 +282,7 @@ contract Yeeter {
 
         moloch.collectTokens(address(wrapper));
 
+        // amount of loot? fees?
         emit Received(msg.sender, newValue, address(moloch));
     }
 
@@ -310,7 +316,7 @@ contract YeetSummoner is CloneFactory, Ownable {
     mapping(uint256 => address) public yeeters;
     uint256 public yeetIdx = 0;
 
-    uint256 public platformFee = 3;
+    uint256 public platformFee = 3; // fee of 3.09%
     uint256 public lootPerUnit = 100;
 
     event PlatformFeeUpdate(uint256 platformFee, uint256 lootPerUnit);
@@ -329,6 +335,8 @@ contract YeetSummoner is CloneFactory, Ownable {
 
     constructor(address payable _template) {
         template = _template;
+        Yeeter _yeeter = Yeeter(_template);
+        _yeeter.initTemplate();
     }
 
     function summonYeet(
@@ -370,7 +378,7 @@ contract YeetSummoner is CloneFactory, Ownable {
         return address(yeeter);
     }
 
-    // only owner functions
+    // owner only functions
     function setConfig(
         uint256 _platformFee,
         uint256 _lootPerUnit
@@ -378,5 +386,6 @@ contract YeetSummoner is CloneFactory, Ownable {
         platformFee = _platformFee;
         lootPerUnit = _lootPerUnit;
         emit PlatformFeeUpdate(platformFee, lootPerUnit);
+
     }
 }
