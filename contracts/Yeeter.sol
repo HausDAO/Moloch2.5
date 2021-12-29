@@ -194,7 +194,7 @@ abstract contract Ownable is Context {
 }
 
 contract Yeeter {
-    event Received(address contributorAddress, uint256 amount);
+    event Received(address indexed contributorAddress, uint256 amount, address moloch);
 
     mapping(address => uint256) public deposits;
     uint256 public maxTarget;
@@ -204,7 +204,6 @@ contract Yeeter {
     uint256 public pricePerUnit;
     uint256 public lootPerUnit;
 
-    address public platformMinion;
     uint256 public platformFee;
 
     uint256 public balance;
@@ -278,7 +277,7 @@ contract Yeeter {
 
         moloch.collectTokens(address(wrapper));
 
-        emit Received(msg.sender, newValue);
+        emit Received(msg.sender, newValue, address(moloch));
     }
 
     function goalReached() public view returns (bool) {
@@ -314,7 +313,7 @@ contract YeetSummoner is CloneFactory, Ownable {
     uint256 public platformFee = 3;
     uint256 public lootPerUnit = 100;
 
-    // Moloch private moloch; // moloch contract
+    event PlatformFeeUpdate(uint256 platformFee, uint256 lootPerUnit);
 
     event SummonYeetComplete(
         address indexed moloch,
@@ -371,12 +370,13 @@ contract YeetSummoner is CloneFactory, Ownable {
         return address(yeeter);
     }
 
-    // owner only functions
+    // only owner functions
     function setConfig(
         uint256 _platformFee,
         uint256 _lootPerUnit
     ) public onlyOwner {
         platformFee = _platformFee;
         lootPerUnit = _lootPerUnit;
+        emit PlatformFeeUpdate(platformFee, lootPerUnit);
     }
 }
