@@ -175,7 +175,19 @@ describe.only("Moloch Yeeter Summoner", function () {
         to: yeetContract.address,
         value: ethers.utils.parseUnits("1.1", "ether").toHexString(),
       };
-      const stx1 = await owner.sendTransaction(params);
+      // const stx1 = await owner.sendTransaction(params);
+
+      await expect(owner.sendTransaction(params))
+        .to.emit(yeetContract, "YeetReceived")
+        .withArgs(
+          owner.address,
+          ethers.utils.parseUnits("1", "ether").toString(),
+          molochContract.address,
+          100,
+          3
+        );
+
+      // console.log('stx1....', stx1)
       const summonerDeposit = await yeetContract.deposits(owner.address);
       const lootper = await yeetContract.lootPerUnit();
       console.log("loot per", lootper.toString());

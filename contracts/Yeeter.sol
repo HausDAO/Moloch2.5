@@ -9,6 +9,8 @@ interface IMOLOCH {
 
     function tokenWhitelist(address token) external view returns (bool);
 
+    function shamans(address token) external view returns (bool);
+
     function totalShares() external view returns (uint256);
 
     function getProposalFlags(uint256 proposalId)
@@ -119,6 +121,49 @@ interface IWRAPPER {
         returns (bool);
 }
 
+abstract contract ReentrancyGuard {
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
+
+    // The values being non-zero value makes deployment a bit more expensive,
+    // but in exchange the refund on every call to nonReentrant will be lower in
+    // amount. Since refunds are capped to a percentage of the total
+    // transaction's gas, it is best to keep them low in cases like this one, to
+    // increase the likelihood of the full refund coming into effect.
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
+    constructor() {
+        _status = _NOT_ENTERED;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and make it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        // On the first call to nonReentrant, _notEntered will be true
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+
+        // Any calls to nonReentrant after this point will fail
+        _status = _ENTERED;
+
+        _;
+
+        // By storing the original value once again, a refund is triggered (see
+        // https://eips.ethereum.org/EIPS/eip-2200)
+        _status = _NOT_ENTERED;
+    }
+}
+
 abstract contract Context {
     function _msgSender() internal view virtual returns (address) {
         return msg.sender;
@@ -193,8 +238,14 @@ abstract contract Ownable is Context {
     }
 }
 
-contract Yeeter {
-    event Received(address contributorAddress, uint256 amount, address moloch);
+contract Yeeter is ReentrancyGuard {
+    event YeetReceived(
+        address indexed contributorAddress,
+        uint256 amount,
+        address moloch,
+        uint256 lootToGive,
+        uint256 lootToPlatform
+    );
     mapping(address => uint256) public deposits;
     uint256 public maxTarget;
     uint256 public raiseEndTime;
@@ -220,7 +271,6 @@ contract Yeeter {
         uint256 _raiseStartTime,
         uint256 _maxUnits, // per individual
         uint256 _pricePerUnit
-
     ) public {
         require(!initialized, "already initialized");
         initialized = true;
@@ -239,28 +289,31 @@ contract Yeeter {
         initialized = true;
     }
 
-    receive() external payable {
+    function yeetyeet() public payable nonReentrant {
         require(address(moloch) != address(0), "!init");
         require(msg.value >= pricePerUnit, "< minimum");
         require(balance < maxTarget, "Max Target reached"); // balance plus newvalue
         require(block.timestamp < raiseEndTime, "Time is up");
         require(block.timestamp > raiseStartTime, "Not Started");
+        require(moloch.shamans(address(this)), "Shaman not whitelisted");
+        require(
+            moloch.tokenWhitelist(address(wrapper)),
+            "Wrapper not whitelisted"
+        );
         uint256 numUnits = msg.value / pricePerUnit; // floor units
         uint256 newValue = numUnits * pricePerUnit;
-        // TODO: DAO needs wrapper token whitelisted
-        // TODO: DAO needs shaman whitelisted
 
         // if some one yeets over max should we give them the max and return leftover.
         require(
             deposits[msg.sender] + newValue <= maxUnitsPerAddr * pricePerUnit,
-            "can not deposit more than max"
+            "Can not deposit more than max"
         );
 
         // wrap
         (bool success, ) = address(wrapper).call{value: newValue}("");
-        require(success, "wrap failed");
+        require(success, "Wrap failed");
         // send to dao
-        require(wrapper.transfer(address(moloch), newValue), "transfer failed");
+        require(wrapper.transfer(address(moloch), newValue), "Transfer failed");
 
         if (msg.value > newValue) {
             // Return the extra money to the minter.
@@ -278,12 +331,29 @@ contract Yeeter {
         uint256 lootToPlatform = (numUnits * factory.platformFee());
 
         moloch.setSingleSharesLoot(msg.sender, 0, lootToGive, true);
-        moloch.setSingleSharesLoot(factory.owner(), 0, lootToPlatform, true);
+        if (lootToPlatform > 0) {
+            moloch.setSingleSharesLoot(
+                factory.owner(),
+                0,
+                lootToPlatform,
+                true
+            );
+        }
 
         moloch.collectTokens(address(wrapper));
 
         // amount of loot? fees?
-        emit Received(msg.sender, newValue, address(moloch));
+        emit YeetReceived(
+            msg.sender,
+            newValue,
+            address(moloch),
+            lootToGive,
+            lootToPlatform
+        );
+    }
+
+    receive() external payable {
+        yeetyeet();
     }
 
     function goalReached() public view returns (bool) {
@@ -379,13 +449,13 @@ contract YeetSummoner is CloneFactory, Ownable {
     }
 
     // owner only functions
-    function setConfig(
-        uint256 _platformFee,
-        uint256 _lootPerUnit
-    ) public onlyOwner {
+    function setConfig(uint256 _platformFee, uint256 _lootPerUnit)
+        public
+        onlyOwner
+    {
+        require(_lootPerUnit > 0, "Can not be 0");
         platformFee = _platformFee;
         lootPerUnit = _lootPerUnit;
         emit PlatformFeeUpdate(platformFee, lootPerUnit);
-
     }
 }
