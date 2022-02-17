@@ -1,4 +1,5 @@
-pragma solidity 0.7.5;
+pragma solidity ^0.8.4;
+
 //SPDX-License-Identifier: MIT
 
 //import "hardhat/console.sol";
@@ -12,10 +13,10 @@ contract AnyERC1155 is ERC1155 {
   using Counters for Counters.Counter;
   Counters.Counter private _tokenIds;
 
-  constructor() public ERC1155("https://URIBase") {
+  constructor() ERC1155("https://URIBase") {
   }
 
-  function mintItem(address to, uint256 id, uint256 amount)
+  function mintItem(address to, uint256 amount)
       public
       returns (uint256)
   {

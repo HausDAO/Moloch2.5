@@ -1,0 +1,258 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_minionSummoner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_daoSummoner",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "moloch",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "shaman",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address[]",
+        "name": "extraShamans",
+        "type": "address[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "address[]",
+        "name": "summoners",
+        "type": "address[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256[]",
+        "name": "summonerShares",
+        "type": "uint256[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256[]",
+        "name": "summonerLoot",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "SetupComplete",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "summoner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "moloch",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "minion",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "avatar",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "details",
+        "type": "string"
+      }
+    ],
+    "name": "SummonComplete",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "daoIdx",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "daoSummoner",
+    "outputs": [
+      {
+        "internalType": "contract IMolochFactory",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "daos",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "summoner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "moloch",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "minion",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "avatar",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "initialized",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "minionSummoner",
+    "outputs": [
+      {
+        "internalType": "contract IMinionFactory",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_summoners",
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "_summonerShares",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "_summonerLoot",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_shamans",
+        "type": "address[]"
+      }
+    ],
+    "name": "setUpDaoMinionAndSafe",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_saltNonce",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_periodDuration",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_votingPeriodLength",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_gracePeriodLength",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_approvedTokens",
+        "type": "address[]"
+      },
+      {
+        "internalType": "string",
+        "name": "details",
+        "type": "string"
+      }
+    ],
+    "name": "summonDaoMinionAndSafe",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "_moloch",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_minion",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

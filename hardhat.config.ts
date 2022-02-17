@@ -4,6 +4,7 @@ import "@nomiclabs/hardhat-ethers";
 import "hardhat-gas-reporter"
 import "hardhat-contract-sizer";
 import "@nomiclabs/hardhat-etherscan";
+import "hardhat-abi-exporter";
 
 import * as fs from 'fs'
 import "hardhat-typechain";
