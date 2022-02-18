@@ -4,7 +4,7 @@ Summon All the Minions
 
 ## Deployments
 
-Rinkeby: 
+Rinkeby factory: 0xf734feCA5A2441103E6a8B4Ae9172Dfe92cA145a
 
 Kovan: 
 
