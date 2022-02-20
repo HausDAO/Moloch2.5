@@ -142,7 +142,7 @@ describe.only("Moloch Daogroni Summoner", function () {
         owner.address,
         4,
         {
-          value: ethers.utils.parseEther("1.0")
+          value: ethers.utils.parseEther(".3")
       }
       );
 
@@ -171,10 +171,51 @@ describe.only("Moloch Daogroni Summoner", function () {
         owner.address,
         4,
         {
-          value: ethers.utils.parseEther("1.0")
+          value: ethers.utils.parseEther(".3")
       }
       );
-      console.log(await daogroni.tokenURI(1))
+      const orderDrink2 = await daogroni.orderDrink(
+        owner.address,
+        4,
+        {
+          value: ethers.utils.parseEther(".3")
+      }
+      );
+      const orderDrink3 = await daogroni.orderDrink(
+        owner.address,
+        4,
+        {
+          value: ethers.utils.parseEther(".3")
+      }
+      );
+      const orderDrink4 = await daogroni.orderDrink(
+        owner.address,
+        4,
+        {
+          value: ethers.utils.parseEther(".3")
+      }
+      );
+      const orderDrink5 = await daogroni.orderDrink(
+        owner.address,
+        4,
+        {
+          value: ethers.utils.parseEther(".3")
+      }
+      );
+      const orderDrink6 = await daogroni.orderDrink(
+        owner.address,
+        4,
+        {
+          value: ethers.utils.parseEther(".3")
+      }
+      );
+      console.log("1:", await daogroni.tokenURI(1))
+      console.log("2:",await daogroni.tokenURI(2))
+      console.log("3:",await daogroni.tokenURI(3))
+      console.log("4:",await daogroni.tokenURI(4))
+      console.log("5:",await daogroni.tokenURI(5))
+      console.log("6:",await daogroni.tokenURI(6))
+
 
   
       const redeem = await daogroni.redeem(1);

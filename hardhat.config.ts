@@ -76,7 +76,7 @@ const config: HardhatUserConfig = {
     },
     xdai: {
       url: 'https://rpc.xdaichain.com/',
-      gasPrice: 1000000000,
+      gasPrice: 10000000000,
       accounts: {
         mnemonic: mnemonic(),
       },
@@ -101,7 +101,6 @@ const config: HardhatUserConfig = {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
     // apiKey: "61ED96HQAY6PASTEWRXN6AMYQEKM8SYTRY" // etherscan
-    apiKey: "9QW4RIZ2EPRSYMPN54FQ4EZIMUX2G9AJPW"// polygon scan
   },
   solidity: {
     compilers: [
