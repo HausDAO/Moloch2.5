@@ -4,15 +4,21 @@ Summon All the Minions
 
 ## Deployments
 
-Rinkeby factory: 0xf734feCA5A2441103E6a8B4Ae9172Dfe92cA145a
+### DAO 2.5 factory
 
-Kovan: 
+Rinkeby factory: 0x61f71A402779108f25aD4B369Dd217d3F008B458
 
-Mainnet: 
+Mainnet: 0xBc2696ff8a3c7bc2E5C0c6Ea5A0cA0c5D36cE39a
 
-Polygon: 
+Gnosis Chain: 0xd06b40B5030D8d46645FaceE1fA31C9F9A83F567
 
-xDai: 
+### Yeeter factory
+
+Rinkeby factory: 0x378472D32Bc8c2D55CF9E8F962F867e94d752ADa
+
+Mainnet: 0x3b603BF5DaFF47F174cA3Fd2d2f8d690A720b59F
+
+Gnosis Chain: 0x398e3a9c53C30Cac5B1ce9cfAbbE011338703686
 
 ## Documetation is still WIP
 
