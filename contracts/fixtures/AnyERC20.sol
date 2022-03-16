@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract AnyERC20 is ERC20, Ownable {
 
-  constructor() ERC20("anycoin", "ANY") public {
+  constructor() ERC20("anycoin", "ANY") {
   }
 
   function mint(address recipient, uint256 amount) public onlyOwner {

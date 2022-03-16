@@ -115,10 +115,17 @@ interface IMOLOCH {
     function setShaman(address, bool) external;
 }
 
-interface IWRAPPER {
+interface IERC20 {
     function transfer(address recipient, uint256 amount)
         external
         returns (bool);
+    function approve(address spender, uint256 value) external returns (bool);
+
+    function transferFrom(
+        address from,
+        address to,
+        uint256 value
+    ) external returns (bool);
 }
 
 abstract contract ReentrancyGuard {
@@ -253,35 +260,37 @@ contract Yeeter is ReentrancyGuard {
     uint256 public maxUnitsPerAddr;
     uint256 public pricePerUnit;
     uint256 public lootPerUnit;
+    bool public onlyERC20;
     bool public initialized;
 
     uint256 public platformFee;
 
     uint256 public balance;
     IMOLOCH public moloch;
-    IWRAPPER public wrapper;
+    IERC20 public token;
 
     YeetSummoner factory;
 
     function init(
         address _moloch,
-        address payable _wrapper,
+        address payable _token, // use wraper for native yeets
         uint256 _maxTarget, // max raise target
         uint256 _raiseEndTime,
         uint256 _raiseStartTime,
         uint256 _maxUnits, // per individual
-        uint256 _pricePerUnit
+        uint256 _pricePerUnit,
+        bool _onlyERC20
     ) public {
         require(!initialized, "already initialized");
         initialized = true;
         moloch = IMOLOCH(_moloch);
-        wrapper = IWRAPPER(_wrapper);
+        token = IERC20(_token);
         maxTarget = _maxTarget;
         raiseEndTime = _raiseEndTime;
         raiseStartTime = _raiseStartTime;
         maxUnitsPerAddr = _maxUnits;
         pricePerUnit = _pricePerUnit;
-
+        onlyERC20 = _onlyERC20;
         factory = YeetSummoner(msg.sender);
     }
 
@@ -289,7 +298,67 @@ contract Yeeter is ReentrancyGuard {
         initialized = true;
     }
 
+    function distroLoot() internal {
+
+    }
+
+    function yeetyeet20(uint256 _value) public payable nonReentrant {
+        require(address(moloch) != address(0), "!init");
+        // require(msg.value >= pricePerUnit, "< minimum");
+        require(balance < maxTarget, "Max Target reached"); // balance plus newvalue
+        require(block.timestamp < raiseEndTime, "Time is up");
+        require(block.timestamp > raiseStartTime, "Not Started");
+        require(moloch.shamans(address(this)), "Shaman not whitelisted");
+        require(
+            moloch.tokenWhitelist(address(token)),
+            "token not whitelisted"
+        );
+        require(_value % pricePerUnit == 0, "!valid amount"); // require value as multiple of units
+
+        uint256 numUnits = _value / pricePerUnit;
+
+        // if some one yeets over max should we give them the max and return leftover.
+        require(
+            deposits[msg.sender] + _value <= maxUnitsPerAddr * pricePerUnit,
+            "Can not deposit more than max"
+        );
+
+        // send to dao
+        require(token.transferFrom(msg.sender, address(moloch), _value), "Transfer failed");
+
+
+        // TODO: check
+        deposits[msg.sender] = deposits[msg.sender] + _value;
+
+        balance = balance + _value;
+
+        uint256 lootToGive = (numUnits * factory.lootPerUnit());
+        uint256 lootToPlatform = (numUnits * factory.platformFee());
+
+        moloch.setSingleSharesLoot(msg.sender, 0, lootToGive, true);
+        if (lootToPlatform > 0) {
+            moloch.setSingleSharesLoot(
+                factory.owner(),
+                0,
+                lootToPlatform,
+                true
+            );
+        }
+
+        moloch.collectTokens(address(token));
+
+        // amount of loot? fees?
+        emit YeetReceived(
+            msg.sender,
+            _value,
+            address(moloch),
+            lootToGive,
+            lootToPlatform
+        );
+    }
+
     function yeetyeet() public payable nonReentrant {
+        require(onlyERC20, "!native");
         require(address(moloch) != address(0), "!init");
         require(msg.value >= pricePerUnit, "< minimum");
         require(balance < maxTarget, "Max Target reached"); // balance plus newvalue
@@ -297,7 +366,7 @@ contract Yeeter is ReentrancyGuard {
         require(block.timestamp > raiseStartTime, "Not Started");
         require(moloch.shamans(address(this)), "Shaman not whitelisted");
         require(
-            moloch.tokenWhitelist(address(wrapper)),
+            moloch.tokenWhitelist(address(token)),
             "Wrapper not whitelisted"
         );
         uint256 numUnits = msg.value / pricePerUnit; // floor units
@@ -310,10 +379,10 @@ contract Yeeter is ReentrancyGuard {
         );
 
         // wrap
-        (bool success, ) = address(wrapper).call{value: newValue}("");
+        (bool success, ) = address(token).call{value: newValue}("");
         require(success, "Wrap failed");
         // send to dao
-        require(wrapper.transfer(address(moloch), newValue), "Transfer failed");
+        require(token.transfer(address(moloch), newValue), "Transfer failed");
 
         if (msg.value > newValue) {
             // Return the extra money to the minter.
@@ -340,7 +409,7 @@ contract Yeeter is ReentrancyGuard {
             );
         }
 
-        moloch.collectTokens(address(wrapper));
+        moloch.collectTokens(address(token));
 
         // amount of loot? fees?
         emit YeetReceived(
@@ -400,8 +469,10 @@ contract YeetSummoner is CloneFactory, Ownable {
         uint256 raiseStartTime,
         uint256 maxUnits,
         uint256 pricePerUnit,
-        string details
+        string details,
+        bool _onlyERC20
     );
+            // bool _onlyERC20
 
     constructor(address payable _template) {
         template = _template;
@@ -411,24 +482,26 @@ contract YeetSummoner is CloneFactory, Ownable {
 
     function summonYeet(
         address _moloch,
-        address payable _wrapper,
+        address payable _token,
         uint256 _maxTarget,
         uint256 _raiseEndTime,
         uint256 _raiseStartTime,
         uint256 _maxUnits,
         uint256 _pricePerUnit,
-        string calldata _details
+        string calldata _details,
+        bool _onlyERC20
     ) public returns (address) {
         Yeeter yeeter = Yeeter(payable(createClone(template)));
 
         yeeter.init(
             _moloch,
-            _wrapper,
+            _token,
             _maxTarget,
             _raiseEndTime,
             _raiseStartTime,
             _maxUnits,
-            _pricePerUnit
+            _pricePerUnit,
+            _onlyERC20
         );
         yeetIdx = yeetIdx + 1;
         yeeters[yeetIdx] = address(yeeter);
@@ -436,13 +509,14 @@ contract YeetSummoner is CloneFactory, Ownable {
         emit SummonYeetComplete(
             _moloch,
             address(yeeter),
-            _wrapper,
+            _token,
             _maxTarget,
             _raiseEndTime,
             _raiseStartTime,
             _maxUnits,
             _pricePerUnit,
-            _details
+            _details,
+            _onlyERC20
         );
 
         return address(yeeter);

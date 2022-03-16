@@ -260,14 +260,14 @@ contract DaoSafeMinionSummoner {
             true
         );
         
-        molochContract.setShaman(dsm.minion, true);
+        molochContract.setShaman(dsm.avatar, true);
         for (uint256 i = 0; i < _shamans.length; i++) {
             molochContract.setShaman(_shamans[i], true);
         }
         molochContract.setShaman(address(this), false);
         emit SetupComplete(
             dsm.moloch,
-            dsm.minion,
+            dsm.avatar,
             _shamans,
             _summoners,
             _summonerShares,

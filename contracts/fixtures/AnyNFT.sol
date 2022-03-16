@@ -1,4 +1,5 @@
-pragma solidity 0.7.5;
+pragma solidity ^0.8.4;
+
 //SPDX-License-Identifier: MIT
 
 //import "hardhat/console.sol";
@@ -12,11 +13,14 @@ contract AnyNFT is ERC721 {
   using Counters for Counters.Counter;
   Counters.Counter private _tokenIds;
 
-  constructor() public ERC721("AnyNFT", "ANFT") {
-    _setBaseURI("https://ipfs.io/ipfs/");
+  constructor() ERC721("AnyNFT", "ANFT") {
   }
 
-  function mintItem(address to, string memory tokenURI)
+  function _baseURI() internal pure override returns (string memory) {
+        return "https://daohaus.mypinata.cloud/ipfs/";
+    }
+
+  function mintItem(address to)
       public
       returns (uint256)
   {
@@ -24,8 +28,8 @@ contract AnyNFT is ERC721 {
 
       uint256 id = _tokenIds.current();
       _mint(to, id);
-      _setTokenURI(id, tokenURI);
 
       return id;
   }
+  
 }
