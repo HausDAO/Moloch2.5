@@ -291,12 +291,15 @@ contract Yeeter is ReentrancyGuard {
         maxUnitsPerAddr = _maxUnits;
         pricePerUnit = _pricePerUnit;
         onlyERC20 = _onlyERC20;
-
         factory = YeetSummoner(msg.sender);
     }
 
     function initTemplate() public {
         initialized = true;
+    }
+
+    function distroLoot() internal {
+
     }
 
     function yeetyeet20(uint256 _value) public payable nonReentrant {
@@ -469,6 +472,7 @@ contract YeetSummoner is CloneFactory, Ownable {
         string details,
         bool _onlyERC20
     );
+            // bool _onlyERC20
 
     constructor(address payable _template) {
         template = _template;
