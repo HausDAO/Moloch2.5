@@ -298,10 +298,6 @@ contract Yeeter is ReentrancyGuard {
         initialized = true;
     }
 
-    function distroLoot() internal {
-
-    }
-
     function yeetyeet20(uint256 _value) public payable nonReentrant {
         require(address(moloch) != address(0), "!init");
         // require(msg.value >= pricePerUnit, "< minimum");
