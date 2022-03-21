@@ -27,7 +27,7 @@ const generateNonce = async () => {
 
 use(solidity);
 
-describe.only("Moloch MInion Safe Summoner", function () {
+describe("Moloch MInion Safe Summoner", function () {
   let signers: SignerWithAddress[];
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
