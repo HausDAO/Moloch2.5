@@ -275,8 +275,8 @@ describe("Moloch Harberger Summoner", function () {
       );
       console.log("cool down", (await harbergerNft.coolDown()).toString());
       console.log(
-        "plot forclosePeriod",
-        (await harbergerNft.plots(1)).forclosePeriod.toString()
+        "plot foreclosePeriod",
+        (await harbergerNft.plots(1)).foreclosePeriod.toString()
       );
 
       const reclaimAsAddr2 = await harbergerNft.connect(addr2);
@@ -325,8 +325,8 @@ describe("Moloch Harberger Summoner", function () {
       );
       console.log("cool down", (await harbergerNft.coolDown()).toString());
       console.log(
-        "plot forclosePeriod",
-        (await harbergerNft.plots(1)).forclosePeriod.toString()
+        "plot foreclosePeriod",
+        (await harbergerNft.plots(1)).foreclosePeriod.toString()
       );
       const deposit = await harAsAddr1.deposit(
         [1],
@@ -401,11 +401,11 @@ describe("Moloch Harberger Summoner", function () {
       );
       console.log("cool down", (await harbergerNft.coolDown()).toString());
       console.log(
-        "plot forclosePeriod",
-        (await harbergerNft.plots(1)).forclosePeriod.toString()
+        "plot foreclosePeriod",
+        (await harbergerNft.plots(1)).foreclosePeriod.toString()
       );
       const newPrice = (await harbergerNft.plots(1)).price.toString();
-      const amountByPeriod = (await harbergerNft.amountByPeriod(depositPeriods, newPrice)).toString();
+      const amountByPeriod = (await harbergerNft.getAmountByPeriod(depositPeriods, newPrice)).toString();
       await tokenAsAddr1.approve(
         harbergerNft.address,
         depositFee.mul(depositPeriods).add(amountByPeriod)
