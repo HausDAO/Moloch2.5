@@ -11,7 +11,7 @@ import { Wrapper } from "../src/types/Wrapper";
 
 use(solidity);
 
-describe.only("Moloch Yeeter Summoner", function () {
+describe("Moloch Yeeter Summoner", function () {
   let signers: SignerWithAddress[];
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
@@ -103,7 +103,8 @@ describe.only("Moloch Yeeter Summoner", function () {
       "0",
       "10",
       ethers.utils.parseUnits("1", "ether"),
-      "test"
+      "test",
+      false
     );
 
     const yeetIdx = await yeetSummoner.yeetIdx();
@@ -232,7 +233,8 @@ describe.only("Moloch Yeeter Summoner", function () {
         "0",
         "10",
         ethers.utils.parseUnits("1", "ether"),
-        "test"
+        "test",
+        false
       );
 
       const yeetIdx = await yeetSummoner.yeetIdx();
