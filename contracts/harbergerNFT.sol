@@ -3,7 +3,6 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 
 import "hardhat/console.sol";
 
@@ -153,9 +152,6 @@ a owner can deposit enough to cover some future amount of periods for fees and t
 */
 
 contract HarbergerNft is ERC721, Ownable {
-    using Counters for Counters.Counter;
-
-    Counters.Counter private _tokenIdCounter;
 
     IMOLOCH public moloch;
     IERC20 public token;
@@ -204,7 +200,7 @@ contract HarbergerNft is ERC721, Ownable {
         uint256[] calldata _plotIds,
         uint256 _amount
     ) public {
-        require(_amount == _plotIds.length * discoveryFee, "!valid amount");
+        require(_amount == _plotIds.length * discoveryFee, "discover:!valid amount");
         require(
             token.transferFrom(msg.sender, owner(), _amount),
             "Transfer failed"
@@ -228,8 +224,8 @@ contract HarbergerNft is ERC721, Ownable {
         uint256 _amount
     ) public {
         // todo: price? it should be 0 if foreclosePeriod?
-        require(getCurrentPeriod() != 0, "period0");
-        require(_amount == _plotIds.length * discoveryFee, "!valid amount");
+        require(!inPeriod0(), "period0");
+        require(_amount == _plotIds.length * discoveryFee, "reclaim:!valid amount");
         require(
             token.transferFrom(msg.sender, owner(), _amount),
             "Transfer failed"
@@ -239,11 +235,11 @@ contract HarbergerNft is ERC721, Ownable {
             require(_plotIds[i] <= cap, "!valid");
             require(plots[_plotIds[i]].owner != _to, "owned");
             require(plots[_plotIds[i]].owner != address(0), "!discovered");
+            console.log("reclaim cooldown?", inCoolDown(_plotIds[i]), plots[_plotIds[i]].foreclosePeriod, getCurrentPeriod());
 
-            require(plots[_plotIds[i]].foreclosePeriod > 0, "!foreclosePeriod");
+            require(inForeclosure(_plotIds[i]), "!foreclosed");
             require(
-                plots[_plotIds[i]].foreclosePeriod + coolDown <
-                    getCurrentPeriod(),
+                !inCoolDown(_plotIds[i]),
                 "coolDown"
             );
             // transfer ownership to claimer
@@ -269,11 +265,15 @@ contract HarbergerNft is ERC721, Ownable {
     ) public {
         require(_plotId <= cap, "!valid");
         require(plots[_plotId].owner != address(0), "!discovered");
+        require(!inForeclosure(_plotId), "foreclosed"); // if in forclosure should reclaim?
         // todo: is this really needed? fine if they only get loot
         // require(plots[_plotId].owner != _to, "can not buy from self");
+        console.log("contract buy amont", _amount);
+        console.log("contract buy quals?", (discoveryFee * 2) + plots[_plotId].price);
+        console.log("contract price", plots[_plotId].price);
         require(
             _amount == (discoveryFee * 2) + plots[_plotId].price,
-            "!valid amount"
+            "buy:!valid amount"
         );
         // collect fees for this plot
         uint256[] memory _plots = new uint256[](1);
@@ -322,7 +322,9 @@ contract HarbergerNft is ERC721, Ownable {
             token.transferFrom(msg.sender, address(this), _amount),
             "Transfer failed"
         );
-        collect(_plotIds);
+        
+        _collectBeforeDeposit(_plotIds);
+
         // add new deposit stake
         for (uint256 i = 0; i < _plotIds.length; i++) {
             require(
@@ -362,7 +364,7 @@ contract HarbergerNft is ERC721, Ownable {
     // collect fees and issue dao membership
     // collector gets loot as a reward
     // public goods fund gets loot
-    function collect(uint256[] memory _plotIds) public {
+    function _collect(uint256[] memory _plotIds, bool _deposit) internal {
         // * updates stake
         // * updates last paid
         // * sets foreclosePeriod
@@ -371,31 +373,29 @@ contract HarbergerNft is ERC721, Ownable {
         // * send tax to dao
         // * issue loot/shares
         for (uint256 i = 0; i < _plotIds.length; i++) {
-            require(getCurrentPeriod() != 0, "period0");
-            console.log(
-                "collect in cool down",
-                plots[_plotIds[i]].foreclosePeriod + coolDown
-            );
-            console.log("collect in current period", getCurrentPeriod());
-
-            require(
-                plots[_plotIds[i]].foreclosePeriod + coolDown <
-                    getCurrentPeriod(),
-                "coolDown"
-            );
+            require(!inPeriod0(), "period0");
             require(_plotIds[i] <= cap, "!valid");
             require(plots[_plotIds[i]].owner != address(0), "!discovered");
-            console.log("foreclosePeriod", plots[_plotIds[i]].foreclosePeriod);
-            console.log("current period", getCurrentPeriod());
-            // require(, "foreclosePeriod"); // if foreclosePeriod you can't collect only reclaim
 
-            uint256 currentStake = plots[_plotIds[i]].stake;
+
+            console.log("collect in current period", getCurrentPeriod());
+            // TODO: should be able to collect while in cooldown
+            // require(
+            //     inCoolDown(_plotIds[i]),
+            //     "coolDown"
+            // );
             uint256 periodsFromCollection = getCurrentPeriod() -
                 plots[_plotIds[i]].lastCollectionPeriod;
-            console.log("periodsFromCollection", periodsFromCollection);
-            if (periodsFromCollection <= 0) {
+             if (periodsFromCollection <= 0 || inForeclosure(_plotIds[i]) || inCoolDown(_plotIds[i])) {
                 continue;
             }
+            uint256 currentStake = plots[_plotIds[i]].stake;
+
+            console.log("foreclosePeriod", plots[_plotIds[i]].foreclosePeriod);
+            console.log("current period", getCurrentPeriod());
+            console.log("periodsFromCollection", periodsFromCollection);
+
+
             // collector gets collection fee
             uint256 totalCollectionFee = periodsFromCollection * collectionFee;
             moloch.setSingleSharesLoot(msg.sender, 0, totalCollectionFee, true);
@@ -442,8 +442,7 @@ contract HarbergerNft is ERC721, Ownable {
                     ));
             } else {
                 require(
-                    token.transferFrom(
-                        address(this),
+                    token.transfer(
                         address(moloch),
                         currentStake
                     ),
@@ -460,6 +459,9 @@ contract HarbergerNft is ERC721, Ownable {
                 moloch.setSingleSharesLoot(owner(), 0, remained * rate, true);
                 plots[_plotIds[i]].stake = 0;
                 plots[_plotIds[i]].foreclosePeriod = getCurrentPeriod();
+                if(!_deposit){
+                    plots[_plotIds[i]].price = 0;
+                }
             }
 
             plots[_plotIds[i]].lastCollectionPeriod = getCurrentPeriod();
@@ -468,6 +470,13 @@ contract HarbergerNft is ERC721, Ownable {
             // TODO: event track deposits
         }
     }
+    function collect(uint256[] memory _plotIds) public {
+        _collect(_plotIds, false);
+    }
+    function _collectBeforeDeposit(uint256[] memory _plotIds) internal {
+        _collect(_plotIds, true);
+    }
+
 
     function transferFromThis(
         address from,
@@ -519,8 +528,20 @@ contract HarbergerNft is ERC721, Ownable {
     //     // * fee to factory
     // }
 
-    // is foreclosePeriod
-    // is in cooldown
+    function inPeriod0() public view returns (bool) {
+        return getCurrentPeriod() == 0;
+    }
+
+    function inCoolDown(uint256 _plotId) public view returns (bool) {
+        return plots[_plotId].foreclosePeriod + coolDown > getCurrentPeriod();
+    }
+    function inForeclosure(uint256 _plotId) public view returns (bool) {
+        return plots[_plotId].foreclosePeriod !=0 && plots[_plotId].foreclosePeriod <= getCurrentPeriod();
+    }
+
+    function getPeriodsFromCollectionuint256(uint256 _plotId) public view returns (uint256) {
+        return getCurrentPeriod() - plots[_plotId].lastCollectionPeriod;
+    }
 
     function getCurrentPeriod() public view returns (uint256) {
         return (block.timestamp - summoningTime) / (periodLength);
