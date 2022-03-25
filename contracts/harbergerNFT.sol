@@ -156,6 +156,9 @@ contract HarbergerNft is ERC721, Ownable {
     IMOLOCH public moloch;
     IERC20 public token;
 
+    // TODO: let DAO set fees
+    // TODO: when buying out a plot should buying buy out current stake (need a min/max on periods)
+    // TODO: flash broblem: set price change before buys
     uint256 public discoveryFee = 10000000000000000; // fee to discover new
     uint256 collectionFee = 3; // fee for colector
     uint256 public depositFee = 10000000000000000; // fee to deposit
@@ -169,7 +172,13 @@ contract HarbergerNft is ERC721, Ownable {
 
     // TODO
     // dao (owner) can change fees and rates
+    // DAO can set infinite price on some land and not pay taxes
 
+    // TODO: expiration date for paste due land
+    // TODO: is cooldown price 0? why can they by. should just half the price or half goes to dao
+    // eminate domain is probably bad but funny
+    // seed it with money?
+    // timer kill switch?
     struct Plot {
         address owner; // current owner
         uint256 stake; // the amount owner has staked
@@ -195,6 +204,7 @@ contract HarbergerNft is ERC721, Ownable {
     }
 
     // initial discovery of a plot
+    // homestead
     function discover(
         address _to,
         uint256[] calldata _plotIds,
@@ -258,6 +268,9 @@ contract HarbergerNft is ERC721, Ownable {
     // buyer is resposible to stake and change price
     // current stake should be returned to seller
     // back pay of fees should be collected
+    // TODO: should discovery fee just come fromm the sale price, as % or something
+    // TODO: double check if discovery fee is needed
+    // TODO: maybe leave some other holes that players can discover (hunt for bugs?)
     function buy(
         address _to,
         uint256 _plotId,
@@ -518,11 +531,14 @@ contract HarbergerNft is ERC721, Ownable {
         return _periods * (depositFee + tax(_plotPrice));
     }
 
+    // todo: should happen when you deposit
+    // should do a coolection whenever price is change
     function setPrice(uint256 _plotId, uint256 _price) public {
         // TODO: should only be able to set price if land is not in forclousure cooldown
         plots[_plotId].price = _price;
     }
 
+    // Pick a color, webstire
     // function setMeta(uint256[] calldata _plotIds) public  {
     //     require(true, "owned");
     //     // * fee to factory
