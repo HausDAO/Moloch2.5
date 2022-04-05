@@ -161,7 +161,7 @@ contract HarbergerNft is ERC721, Ownable {
     IERC20 public token;
 
     uint256 public discoveryFee = 10000000000000000; // fee to discover new
-    uint256 collectionFee = 3; // fee for colector
+    uint256 collectionFee = 10000000000000000; // fee for colector
     uint256 public depositFee = 10000000000000000; // fee to deposit
     uint256 rate = 3; // public goods fund, dillutes dao
     uint256 taxRate = 3; // global tax rate
@@ -178,7 +178,7 @@ contract HarbergerNft is ERC721, Ownable {
 
     event DiscoverFee(uint256 _plotId, uint256 _amount, address _paidTo);
     event AddStake(uint256 _plotId, uint256 _amount);
-    event Unstake(uint256 _plotId);
+    event Unstake(uint256 _plotId, uint256 _amount);
 
     struct Plot {
         address owner; // current owner
@@ -238,17 +238,11 @@ contract HarbergerNft is ERC721, Ownable {
             token.transferFrom(msg.sender, owner(), _amount),
             "Transfer failed"
         );
-
-
         require(_plotId <= cap, "!valid");
         require(plots[_plotId].owner != _to, "owned");
         require(plots[_plotId].owner != address(0), "!discovered");
-
         require(inForeclosure(_plotId), "!foreclosed");
-        require(
-                !inGracePeriod(_plotId),
-                "gracePeriod"
-            );
+        require(!inGracePeriod(_plotId), "gracePeriod");
         // transfer ownership to claimer
         transferFromThis(plots[_plotId].owner, _to, _plotId);
         plots[_plotId].owner = _to;
@@ -256,14 +250,13 @@ contract HarbergerNft is ERC721, Ownable {
 
         // TODO: event track deposits
         emit DiscoverFee(_plotId, discoveryFee, owner());
-
     }
 
-    // plot is always for sale. anyone can buy for price set plus 2x discoveryFee
+    // plot is always for sale. anyone can buy for price
     // price stays the same after purchase
-    // buyer is resposible to stake and change price
-    // current stake should be returned to seller
-    // back pay of fees should be collected
+    // buyer is resposible to stake and/or change price
+    // back pay of fees are collected
+    // current stake is returned to seller
     function buy(
         address _to,
         uint256 _plotId,
@@ -277,10 +270,7 @@ contract HarbergerNft is ERC721, Ownable {
         collect(_plots);
 
         require(!inForeclosure(_plotId), "buy:foreclosed"); // if in forclosure should reclaim?
-        require(
-            _amount == plots[_plotId].price,
-            "!valid amount"
-        );
+        require(_amount == plots[_plotId].price, "!valid amount");
 
         if (plots[_plotId].price > 0) {
             require(
@@ -295,30 +285,29 @@ contract HarbergerNft is ERC721, Ownable {
 
         // return remaining stake
         require(
-            token.transfer(
-                plots[_plotId].owner,
-                plots[_plotId].stake
-            ),
+            token.transfer(plots[_plotId].owner, plots[_plotId].stake),
             "Transfer failed"
         );
         transferFromThis(plots[_plotId].owner, _to, _plotId);
     }
 
-    // deposit fee
+    // deposit stake on land
+    // also pay deposit 'fee' to public goods
     function deposit(
         uint256 _plotId,
         uint256 _periods,
         uint256 _amount
     ) public {
         require(
-            token.transferFrom(msg.sender, address(this), _amount),
-            "Transfer failed"
-        );
-        require(
             _amount >= getAmountByPeriod(_periods, plots[_plotId].price),
             "not enough deposit"
         );
-        // collect fees for this plot
+        require(
+            token.transferFrom(msg.sender, address(this), _amount),
+            "Transfer failed"
+        );
+
+        // collect back taxes for this plot
         uint256[] memory _plots = new uint256[](1);
         _plots[0] = _plotId;
         collectBeforeDeposit(_plots);
@@ -328,16 +317,14 @@ contract HarbergerNft is ERC721, Ownable {
 
         plots[_plotId].stake = newStake;
         plots[_plotId].foreclosePeriod = 0; // not foreclosePeriod now
-        // TODO: event track deposits
         emit AddStake(_plotId, newStake);
     }
 
-    // remove deposit
+    // remove any stake deposit after backpay of taxes
     function unstake(uint256 _plotId) public {
-
         require(_plotId <= cap, "!valid");
-        require(plots[_plotId].owner == msg.sender, "owned");
-        require(plots[_plotId].stake != 0, "!no stake");
+        require(plots[_plotId].owner == msg.sender, "!owned");
+        require(plots[_plotId].stake != 0, "!stake");
         // TODO: back pay taxes, does collect work here?
         uint256[] memory _plots = new uint256[](1);
         _plots[0] = _plotId;
@@ -345,25 +332,21 @@ contract HarbergerNft is ERC721, Ownable {
         plots[_plotId].stake = 0;
         plots[_plotId].foreclosePeriod = getCurrentPeriod();
         require(
-            token.transfer(
-                msg.sender,
-                plots[_plotId].stake
-            ),
+            token.transfer(msg.sender, plots[_plotId].stake),
             "Transfer failed"
         );
-        
-        emit Unstake(_plotId);
 
+        emit Unstake(_plotId, plots[_plotId].stake);
     }
 
-    // collect fees and issue dao membership
+    // collect fees and issue dao shares
     // collector gets loot as a reward
     // public goods fund gets loot
     function _collect(uint256[] memory _plotIds, bool _deposit) internal {
         // * updates stake
         // * updates last paid
         // * sets foreclosePeriod
-        // * collector fee
+        // * issue collector fee
         // * collect % tax on price set
         // * send tax to dao
         // * issue loot/shares
@@ -385,16 +368,21 @@ contract HarbergerNft is ERC721, Ownable {
             if (inForeclosure(_plotIds[i]) || inGracePeriod(_plotIds[i])) {
                 continue;
             }
-            // collector gets collection fee
-            uint256 totalCollectionFee = periodsFromCollection * collectionFee;
-            moloch.setSingleSharesLoot(msg.sender, 0, totalCollectionFee, true);
+            // collector gets collection fee in loot
+            // TODO: should be a %
+            giveLoot(msg.sender, periodsFromCollection * collectionFee);
 
-            // collect any current fees and update stake
-            // if foreclosePeriod, collect all current stake
+            // collect any current taxes and update stake
+
             if (
                 currentStake >
-                getAmountByPeriod(periodsFromCollection, plots[_plotIds[i]].price)
+                getAmountByPeriod(
+                    periodsFromCollection,
+                    plots[_plotIds[i]].price
+                )
             ) {
+                // has enough to pay
+                // send collection to dao
                 require(
                     token.transfer(
                         address(moloch),
@@ -406,22 +394,20 @@ contract HarbergerNft is ERC721, Ownable {
                     "Transfer failed"
                 );
                 // issue shares for collection paid
-                // TODO: issue shares for tax this is not right (tax(plots[_plotIds[i]].price) / depositFee)
-                moloch.setSingleSharesLoot(
+                // amount of tax paid minus the collection fee
+                giveShares(
                     plots[_plotIds[i]].owner,
-                    ((periodsFromCollection +
-                        (tax(plots[_plotIds[i]].price) / depositFee)) *
-                        lootPer) - totalCollectionFee,
-                    0,
-                    true
+                    getAmountByPeriod(
+                        periodsFromCollection,
+                        plots[_plotIds[i]].price
+                    ) -
+                        (periodsFromCollection * collectionFee) / // remove already paid collection fee. could make it <= 0
+                        1 ether // floor
                 );
+
                 // issue loot to public goods fund
-                moloch.setSingleSharesLoot(
-                    owner(),
-                    0,
-                    periodsFromCollection * rate,
-                    true
-                );
+                // flat rate that dilutes the share holders
+                giveLoot(owner(), periodsFromCollection * rate);
                 plots[_plotIds[i]].stake = (currentStake -
                     getAmountByPeriod(
                         periodsFromCollection,
@@ -429,44 +415,39 @@ contract HarbergerNft is ERC721, Ownable {
                     ));
             } else {
                 require(
-                    token.transfer(
-                        address(moloch),
-                        currentStake
-                    ),
+                    token.transfer(address(moloch), currentStake),
                     "Transfer failed"
                 );
-                uint256 remained = (currentStake % depositFee) +
-                    tax(plots[_plotIds[i]].price);
-                moloch.setSingleSharesLoot(
-                    plots[_plotIds[i]].owner,
-                    remained * lootPer,
-                    0,
-                    true
-                );
-                moloch.setSingleSharesLoot(owner(), 0, remained * rate, true);
+                // uint256 remained = (currentStake % depositFee) +
+                //     tax(plots[_plotIds[i]].price);
+                giveShares(plots[_plotIds[i]].owner, (currentStake / 1 ether));
+                // public goods dilution
+                giveLoot(owner(), periodsFromCollection * rate);
                 plots[_plotIds[i]].stake = 0;
                 plots[_plotIds[i]].foreclosePeriod = getCurrentPeriod();
-                if(!_deposit){
+                if (!_deposit) {
                     plots[_plotIds[i]].price = 0;
                 }
             }
-            
+
             // if there is a token balance
             // moloch.collectTokens(address(token));
             // TODO: event track deposits
         }
     }
 
-    function giveShares(uint256 shares) internal {
-        
+    function giveShares(address _to, uint256 _shares) internal {
+        moloch.setSingleSharesLoot(_to, _shares, 0, true);
     }
-    function giveLoot(uint256 shares) internal {
-        
+
+    function giveLoot(address _to, uint256 _loot) internal {
+        moloch.setSingleSharesLoot(_to, 0, _loot, true);
     }
 
     function collect(uint256[] memory _plotIds) public {
         _collect(_plotIds, false);
     }
+
     function collectBeforeDeposit(uint256[] memory _plotIds) internal {
         _collect(_plotIds, true);
     }
@@ -513,14 +494,20 @@ contract HarbergerNft is ERC721, Ownable {
 
     function setPrice(uint256 _plotId, uint256 _price) public {
         // TODO: should only be able to set price if land is not in forclousure cooldown
+        // TODO: set price and deposit
+        // TODO: set color
         plots[_plotId].price = _price;
     }
 
     function inGracePeriod(uint256 _plotId) public view returns (bool) {
-        return plots[_plotId].foreclosePeriod + gracePeriod > getCurrentPeriod();
+        return
+            plots[_plotId].foreclosePeriod + gracePeriod > getCurrentPeriod();
     }
+
     function inForeclosure(uint256 _plotId) public view returns (bool) {
-        return plots[_plotId].foreclosePeriod !=0 && plots[_plotId].foreclosePeriod <= getCurrentPeriod();
+        return
+            plots[_plotId].foreclosePeriod != 0 &&
+            plots[_plotId].foreclosePeriod <= getCurrentPeriod();
     }
 
     function getCurrentPeriod() public view returns (uint256) {
