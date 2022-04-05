@@ -298,7 +298,7 @@ contract Yeeter is ReentrancyGuard {
         initialized = true;
     }
 
-    function yeetyeet20(uint256 _value) public payable nonReentrant {
+    function yeetyeet20(uint256 _value) public nonReentrant {
         require(address(moloch) != address(0), "!init");
         // require(msg.value >= pricePerUnit, "< minimum");
         require(balance < maxTarget, "Max Target reached"); // balance plus newvalue
@@ -354,7 +354,7 @@ contract Yeeter is ReentrancyGuard {
     }
 
     function yeetyeet() public payable nonReentrant {
-        require(onlyERC20, "!native");
+        require(!onlyERC20, "!native");
         require(address(moloch) != address(0), "!init");
         require(msg.value >= pricePerUnit, "< minimum");
         require(balance < maxTarget, "Max Target reached"); // balance plus newvalue
