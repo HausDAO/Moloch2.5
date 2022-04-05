@@ -374,7 +374,7 @@ describe("Moloch Harberger Summoner", function () {
       const setPrice = await harAsAddr1.setPrice(1, "100000000000000000");
 
       const newPrice = (await harbergerNft.plots(1)).price.toString();
-      const amountByPeriod = (await harbergerNft.getAmountByPeriod(depositPeriods, newPrice)).toString();
+      const amountByPeriod = (await harbergerNft.getFeeAmountByPeriod(depositPeriods, newPrice)).toString();
       await tokenAsAddr1.approve(
         harbergerNft.address,
         depositFee.mul(depositPeriods).add(amountByPeriod)

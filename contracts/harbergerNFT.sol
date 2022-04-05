@@ -147,7 +147,7 @@ Each plot has a few different actions that can happen.
 
 All land starts as undiscovered can be discovered by minting. At discovery only a discover fee is paid to contract owner. initially price is set to 0 the next collection event would set plot foreclosed if no stake is made. period length can be set as some number of seconds.
 
-Anyone can collect fees and taxes from land. all funds are sent to the dao. collector gets loot for performing the function as total collectionFee (collectionFee is deducted from shares given to owner). owner gets shares for any taxes and fees paid (minus collection fee). public goods gets a set rate of loot which dilutes the dao. collection is removed from owners current stake. If the owner does not have enough stake to pay fees/taxes all remaining stake is used and land is set insolvent(foreclosed) at that time. last collection period is set on the plot
+Anyone can collect fees and taxes from land. all funds are sent to the dao. collector gets loot for performing the function as total collectionRate (collectionRate is deducted from shares given to owner). owner gets shares for any taxes and fees paid (minus collection fee). public goods gets a set rate of loot which dilutes the dao. collection is removed from owners current stake. If the owner does not have enough stake to pay fees/taxes all remaining stake is used and land is set insolvent(foreclosed) at that time. last collection period is set on the plot
 
 a owner can deposit enough to cover some future amount of periods for fees and taxes. if price is set they will need to cover current taxes as well. 
 */
@@ -161,11 +161,12 @@ contract HarbergerNft is ERC721, Ownable {
     IERC20 public token;
 
     uint256 public discoveryFee = 10000000000000000; // fee to discover new
-    uint256 public collectionFee = 10000000000000000; // fee for colector
+    uint256 public collectionRate = 3; // fee for colector
     uint256 public depositFee = 10000000000000000; // fee to deposit
     uint256 public basePrice = 10000000000000000; // fee to deposit
-    uint256 rate = 3; // public goods fund, dillutes dao
-    uint256 taxRate = 3; // global tax rate
+    uint256 public publicGoodRate = 3; // public goods fund, dillutes dao
+    uint256 public taxRate = 3; // global tax rate
+    uint256 unitPer = 100;
 
     uint256 public periodLength; // length of a deposit period
     uint256 public gracePeriod; // cool down before fair game
@@ -306,7 +307,7 @@ contract HarbergerNft is ERC721, Ownable {
         uint256 _amount
     ) public {
         require(
-            _amount >= getAmountByPeriod(_periods, plots[_plotId].price),
+            _amount >= getFeeAmountByPeriod(_periods, plots[_plotId].price),
             "not enough deposit"
         );
         require(
@@ -320,7 +321,7 @@ contract HarbergerNft is ERC721, Ownable {
         collectBeforeDeposit(_plots);
 
         uint256 newStake = plots[_plotId].stake +
-            getAmountByPeriod(_periods, plots[_plotId].price);
+            getFeeAmountByPeriod(_periods, plots[_plotId].price);
 
         plots[_plotId].stake = newStake;
         plots[_plotId].foreclosePeriod = 0; // not foreclosePeriod now
@@ -376,14 +377,13 @@ contract HarbergerNft is ERC721, Ownable {
                 continue;
             }
             // collector gets collection fee in loot
-            // TODO: should be a %
-            giveLoot(msg.sender, periodsFromCollection * collectionFee);
+            giveLoot(msg.sender, periodsFromCollection * collectionRate);
 
             // collect any current taxes and update stake
 
             if (
                 currentStake >
-                getAmountByPeriod(
+                getFeeAmountByPeriod(
                     periodsFromCollection,
                     plots[_plotIds[i]].price
                 )
@@ -393,7 +393,7 @@ contract HarbergerNft is ERC721, Ownable {
                 require(
                     token.transfer(
                         address(moloch),
-                        getAmountByPeriod(
+                        getFeeAmountByPeriod(
                             periodsFromCollection,
                             plots[_plotIds[i]].price
                         )
@@ -402,21 +402,27 @@ contract HarbergerNft is ERC721, Ownable {
                 );
                 // issue shares for collection paid
                 // amount of tax paid minus the collection fee
-                giveShares(
-                    plots[_plotIds[i]].owner,
-                    getAmountByPeriod(
+                // get amount of fees and taxes
+                // devide by base price to get whole number
+                // multiple by unit per to get total shares
+                // subtract what has alreay been paid to collector
+                // could make it <= 0
+                uint256 totalShares = ((getFeeAmountByPeriod(
                         periodsFromCollection,
                         plots[_plotIds[i]].price
-                    ) -
-                        (periodsFromCollection * collectionFee) / // remove already paid collection fee. could make it <= 0
-                        1 ether // floor
+                    ) / basePrice) * unitPer);
+                    // will need to check fo underflow here
+                    // - (periodsFromCollection * collectionRate);
+                giveShares(
+                    plots[_plotIds[i]].owner,
+                    totalShares
                 );
 
                 // issue loot to public goods fund
                 // flat rate that dilutes the share holders
-                giveLoot(owner(), periodsFromCollection * rate);
+                giveLoot(owner(), periodsFromCollection * publicGoodRate);
                 plots[_plotIds[i]].stake = (currentStake -
-                    getAmountByPeriod(
+                    getFeeAmountByPeriod(
                         periodsFromCollection,
                         plots[_plotIds[i]].price
                     ));
@@ -425,11 +431,15 @@ contract HarbergerNft is ERC721, Ownable {
                     token.transfer(address(moloch), currentStake),
                     "Transfer failed"
                 );
-                // uint256 remained = (currentStake % depositFee) +
-                //     tax(plots[_plotIds[i]].price);
-                giveShares(plots[_plotIds[i]].owner, (currentStake / 1 ether));
+
+                giveShares(
+                    plots[_plotIds[i]].owner,
+                    ((currentStake / basePrice) * unitPer) 
+                );
+                // need to check for underflow
+                // - (periodsFromCollection * collectionRate)
                 // public goods dilution
-                giveLoot(owner(), periodsFromCollection * rate);
+                giveLoot(owner(), periodsFromCollection * publicGoodRate);
                 plots[_plotIds[i]].stake = 0;
                 plots[_plotIds[i]].foreclosePeriod = getCurrentPeriod();
                 if (!_deposit) {
@@ -491,7 +501,7 @@ contract HarbergerNft is ERC721, Ownable {
         return (_price / 100) * taxRate;
     }
 
-    function getAmountByPeriod(uint256 _periods, uint256 _plotPrice)
+    function getFeeAmountByPeriod(uint256 _periods, uint256 _plotPrice)
         public
         view
         returns (uint256)
@@ -516,19 +526,19 @@ contract HarbergerNft is ERC721, Ownable {
 
     function updateConfig(
         uint256 _discoveryFee,
-        uint256 _collectionFee,
+        uint256 _collectionRate,
         uint256 _depositFee,
         uint256 _basePrice,
-        uint256 _rate,
+        uint256 _publicGoodRate,
         uint256 _taxRate,
         uint256 _periodLength,
         uint256 _gracePeriod
     ) public onlyOwner {
         discoveryFee = _discoveryFee;
-        collectionFee = _collectionFee;
+        collectionRate = _collectionRate;
         depositFee = _depositFee;
         basePrice = _basePrice;
-        rate = _rate;
+        publicGoodRate = _publicGoodRate;
         taxRate = _taxRate;
         periodLength = _periodLength;
         gracePeriod = _gracePeriod;
