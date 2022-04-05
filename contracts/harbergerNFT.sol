@@ -177,7 +177,7 @@ contract HarbergerNft is ERC721, Ownable {
     // TODO
     // dao (owner) can change fees and rates
     // price of nft can only be set in intervals then loot per is easier
-    // 
+    //
 
     event DiscoverFee(uint256 plotId, uint256 amount, address _paidTo);
     event AddStake(uint256 plotId, uint256 amount);
@@ -510,10 +510,28 @@ contract HarbergerNft is ERC721, Ownable {
     }
 
     function setMeta(uint256 _plotId, uint24 _color) public {
-
         plots[_plotId].color = _color;
-
         emit SetMeta(_plotId, _color);
+    }
+
+    function updateConfig(
+        uint256 _discoveryFee,
+        uint256 _collectionFee,
+        uint256 _depositFee,
+        uint256 _basePrice,
+        uint256 _rate,
+        uint256 _taxRate,
+        uint256 _periodLength,
+        uint256 _gracePeriod
+    ) public onlyOwner {
+        discoveryFee = _discoveryFee;
+        collectionFee = _collectionFee;
+        depositFee = _depositFee;
+        basePrice = _basePrice;
+        rate = _rate;
+        taxRate = _taxRate;
+        periodLength = _periodLength;
+        gracePeriod = _gracePeriod;
     }
 
     function inGracePeriod(uint256 _plotId) public view returns (bool) {
