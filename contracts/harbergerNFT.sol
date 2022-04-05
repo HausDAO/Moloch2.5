@@ -185,7 +185,12 @@ contract HarbergerNft is ERC721, Ownable {
     event Unstake(uint256 plotId, uint256 amount);
     event SetPrice(uint256 plotId, uint256 price);
     event SetMeta(uint256 plotId, uint24 color);
-    event Collection();
+    event Collection(
+        uint256 sharesOwner,
+        uint256 lootPg,
+        uint256 lootCollector,
+        uint256 fundsDao
+    );
 
     struct Plot {
         address owner; // current owner
@@ -363,6 +368,11 @@ contract HarbergerNft is ERC721, Ownable {
             require(_plotIds[i] <= cap, "!valid");
             require(plots[_plotIds[i]].owner != address(0), "!discovered");
 
+            uint256 sharesToGiveOwner;
+            uint256 lootToGivePG;
+            uint256 LootToGiveCollector;
+            uint256 fundsToDao;
+
             uint256 currentStake = plots[_plotIds[i]].stake;
             uint256 periodsFromCollection = getCurrentPeriod() -
                 plots[_plotIds[i]].lastCollectionPeriod;
@@ -377,7 +387,8 @@ contract HarbergerNft is ERC721, Ownable {
                 continue;
             }
             // collector gets collection fee in loot
-            giveLoot(msg.sender, periodsFromCollection * collectionRate);
+            LootToGiveCollector = periodsFromCollection * collectionRate;
+            giveLoot(msg.sender, LootToGiveCollector);
 
             // collect any current taxes and update stake
 
@@ -390,14 +401,12 @@ contract HarbergerNft is ERC721, Ownable {
             ) {
                 // has enough to pay
                 // send collection to dao
+                fundsToDao = getFeeAmountByPeriod(
+                    periodsFromCollection,
+                    plots[_plotIds[i]].price
+                );
                 require(
-                    token.transfer(
-                        address(moloch),
-                        getFeeAmountByPeriod(
-                            periodsFromCollection,
-                            plots[_plotIds[i]].price
-                        )
-                    ),
+                    token.transfer(address(moloch), fundsToDao),
                     "Transfer failed"
                 );
                 // issue shares for collection paid
@@ -407,39 +416,38 @@ contract HarbergerNft is ERC721, Ownable {
                 // multiple by unit per to get total shares
                 // subtract what has alreay been paid to collector
                 // could make it <= 0
-                uint256 totalShares = ((getFeeAmountByPeriod(
-                        periodsFromCollection,
-                        plots[_plotIds[i]].price
-                    ) / basePrice) * unitPer);
-                    // will need to check fo underflow here
-                    // - (periodsFromCollection * collectionRate);
-                giveShares(
-                    plots[_plotIds[i]].owner,
-                    totalShares
-                );
+                sharesToGiveOwner = ((getFeeAmountByPeriod(
+                    periodsFromCollection,
+                    plots[_plotIds[i]].price
+                ) / basePrice) * unitPer);
+                // will need to check fo underflow here
+                // - (periodsFromCollection * collectionRate);
+                giveShares(plots[_plotIds[i]].owner, sharesToGiveOwner);
 
                 // issue loot to public goods fund
                 // flat rate that dilutes the share holders
-                giveLoot(owner(), periodsFromCollection * publicGoodRate);
+                lootToGivePG = periodsFromCollection * publicGoodRate;
+                giveLoot(owner(), lootToGivePG);
                 plots[_plotIds[i]].stake = (currentStake -
                     getFeeAmountByPeriod(
                         periodsFromCollection,
                         plots[_plotIds[i]].price
                     ));
             } else {
+                fundsToDao = currentStake;
                 require(
-                    token.transfer(address(moloch), currentStake),
+                    token.transfer(address(moloch), fundsToDao),
                     "Transfer failed"
                 );
-
-                giveShares(
-                    plots[_plotIds[i]].owner,
-                    ((currentStake / basePrice) * unitPer) 
-                );
+                sharesToGiveOwner = (currentStake / basePrice) * unitPer;
                 // need to check for underflow
                 // - (periodsFromCollection * collectionRate)
+
+                giveShares(plots[_plotIds[i]].owner, sharesToGiveOwner);
+
                 // public goods dilution
-                giveLoot(owner(), periodsFromCollection * publicGoodRate);
+                lootToGivePG = periodsFromCollection * publicGoodRate;
+                giveLoot(owner(), lootToGivePG);
                 plots[_plotIds[i]].stake = 0;
                 plots[_plotIds[i]].foreclosePeriod = getCurrentPeriod();
                 if (!_deposit) {
@@ -447,9 +455,17 @@ contract HarbergerNft is ERC721, Ownable {
                 }
             }
 
-            // if there is a token balance
-            // moloch.collectTokens(address(token));
+            // TODO: if there is a token balance
+            if (fundsToDao > 0) {
+                moloch.collectTokens(address(token));
+            }
             // TODO: event track deposits
+            emit Collection(
+                sharesToGiveOwner,
+                lootToGivePG,
+                LootToGiveCollector,
+                fundsToDao
+            );
         }
     }
 
