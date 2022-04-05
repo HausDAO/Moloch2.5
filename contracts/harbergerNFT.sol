@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "./libraries/base64.sol";
 
 import "hardhat/console.sol";
 
@@ -174,6 +175,8 @@ contract HarbergerNft is ERC721, Ownable {
     uint256 rows = 24; // 30 x 30 grid
     uint256 cols = 24; // 30 x 30 grid
     uint256 cap = rows * cols; // 30 x 30 grid
+
+    string public _baseTokenURI;
 
     // TODO
     // dao (owner) can change fees and rates
@@ -573,5 +576,92 @@ contract HarbergerNft is ERC721, Ownable {
 
     function getCurrentPeriod() public view returns (uint256) {
         return (block.timestamp - summoningTime) / (periodLength);
+    }
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseTokenURI;
+    }
+
+    function setBaseURI(string memory baseURI) public onlyOwner {
+        _baseTokenURI = baseURI;
+    }
+    // TODO
+    function getRow(uint256 plotId) internal pure returns (uint256) {
+        return 6;
+    }
+    function getCol(uint256 plotId) internal pure returns (uint256) {
+        return 9;
+    }
+
+    /**  Constructs the tokenURI, separated out from the public function as its a big function.
+     * Generates the json data URI and svg data URI that ends up sent when someone requests the tokenURI
+     * svg has a image tag that can be updated by the owner (dao)
+     * param: _tokenId the tokenId
+     */
+    function _constructTokenURI(uint256 _tokenId)
+        internal
+        view
+        returns (string memory)
+    {
+        string memory _nftName = string(abi.encodePacked("FomoNFT DAO "));
+        string memory _metadataSVGs = string(
+            abi.encodePacked(
+                '<image width="100%" href="',
+                _baseTokenURI,
+                '" />',
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="40%">FOMO NFT DAO</text>',
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="50%">',
+                Strings.toString(getRow(_tokenId)),
+                " - ",
+                Strings.toString(getCol(_tokenId)),
+                "</text>"
+            )
+        );
+
+        bytes memory svg = abi.encodePacked(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet" style="font:14px serif"><rect width="400" height="400" fill="black" />',
+            _metadataSVGs,
+            "</svg>"
+        );
+
+        bytes memory _image = abi.encodePacked(
+            "data:image/svg+xml;base64,",
+            Base64.encode(bytes(svg))
+        );
+
+        return
+            string(
+                abi.encodePacked(
+                    "data:application/json;base64,",
+                    Base64.encode(
+                        bytes(
+                            abi.encodePacked(
+                                '{"name":"',
+                                _nftName,
+                                '", "image":"',
+                                _image,
+                                // Todo something clever
+                                '", "description": "The map to your heart"}'
+                            )
+                        )
+                    )
+                )
+            );
+    }
+
+    /* Returns the json data associated with this token ID
+     * param _tokenId the token ID
+     */
+    function tokenURI(uint256 _tokenId)
+        public
+        view
+        override
+        returns (string memory)
+    {
+        require(
+            _exists(_tokenId),
+            "ERC721Metadata: URI query for nonexistent token"
+        );
+        return string(_constructTokenURI(_tokenId));
     }
 }
