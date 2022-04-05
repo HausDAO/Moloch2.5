@@ -133,7 +133,7 @@ interface IERC20 {
 }
 
 /*
-There are 900 NFTs (plots) a 30x30 grid. 
+There are 576 NFTs (plots) a 24x24 grid. 
 All land is always for sale. 
 Each plot has a few different actions that can happen.
 - discover: (new plot)
@@ -142,7 +142,7 @@ Each plot has a few different actions that can happen.
 - set price: change the price for buy out. Price will determine how much 'tax' is collect
 - collect: anyone can act as a tax collector on land. it will collect all taxes from the last collection period and if there is not enough funds deposited the land goes into foreclosure. Foreclosure price of land to 0. taxes and fees are deposited into the dao as shares. the tax collector gets loot.
 - buy land: anyone can buy land based on the set price. funds are transferred to the seller, land is transferred to the owner. 
-- cool down: land is put into a cool down state for some number of periods when foreclosed. during cooldown owner can deposit more stake to get it out of foreclosure.
+- grace: land is put into a grace period state for some number of periods when foreclosed. during cooldown owner can deposit more stake to get it out of foreclosure.
 - there is also a discovery fee (loot goes to contract owner) and deposit fee (loot goes to public goods fund)
 
 All land starts as undiscovered can be discovered by minting. At discovery only a discover fee is paid to contract owner. initially price is set to 0 the next collection event would set plot foreclosed if no stake is made. period length can be set as some number of seconds.
@@ -161,8 +161,9 @@ contract HarbergerNft is ERC721, Ownable {
     IERC20 public token;
 
     uint256 public discoveryFee = 10000000000000000; // fee to discover new
-    uint256 collectionFee = 10000000000000000; // fee for colector
+    uint256 public collectionFee = 10000000000000000; // fee for colector
     uint256 public depositFee = 10000000000000000; // fee to deposit
+    uint256 public basePrice = 10000000000000000; // fee to deposit
     uint256 rate = 3; // public goods fund, dillutes dao
     uint256 taxRate = 3; // global tax rate
 
@@ -175,10 +176,15 @@ contract HarbergerNft is ERC721, Ownable {
 
     // TODO
     // dao (owner) can change fees and rates
+    // price of nft can only be set in intervals then loot per is easier
+    // 
 
-    event DiscoverFee(uint256 _plotId, uint256 _amount, address _paidTo);
-    event AddStake(uint256 _plotId, uint256 _amount);
-    event Unstake(uint256 _plotId, uint256 _amount);
+    event DiscoverFee(uint256 plotId, uint256 amount, address _paidTo);
+    event AddStake(uint256 plotId, uint256 amount);
+    event Unstake(uint256 plotId, uint256 amount);
+    event SetPrice(uint256 plotId, uint256 price);
+    event SetMeta(uint256 plotId, uint24 color);
+    event Collection();
 
     struct Plot {
         address owner; // current owner
@@ -186,6 +192,7 @@ contract HarbergerNft is ERC721, Ownable {
         uint256 foreclosePeriod; // 0 if not or time
         uint256 lastCollectionPeriod; // period
         uint256 price;
+        uint24 color;
     }
 
     // maping of all the plots
@@ -495,8 +502,18 @@ contract HarbergerNft is ERC721, Ownable {
     function setPrice(uint256 _plotId, uint256 _price) public {
         // TODO: should only be able to set price if land is not in forclousure cooldown
         // TODO: set price and deposit
-        // TODO: set color
+
+        require(_price % basePrice == 0, "price invalid");
         plots[_plotId].price = _price;
+
+        emit SetPrice(_plotId, _price);
+    }
+
+    function setMeta(uint256 _plotId, uint24 _color) public {
+
+        plots[_plotId].color = _color;
+
+        emit SetMeta(_plotId, _color);
     }
 
     function inGracePeriod(uint256 _plotId) public view returns (bool) {

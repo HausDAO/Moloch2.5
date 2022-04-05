@@ -344,10 +344,10 @@ describe("Moloch Harberger Summoner", function () {
         discoveryFee
       );
 
-      discoverAsAddr1.setPrice(1, "1000000000000000");
+      discoverAsAddr1.setPrice(1, "10000000000000000");
 
       const newPrice = (await harbergerNft.plots(1)).price.toString();
-      expect(newPrice).to.equal("1000000000000000");
+      expect(newPrice).to.equal("10000000000000000");
     });
     it("should be able to deposit for fee and tax only and buy with price > 0", async function () {
       const [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
@@ -371,7 +371,7 @@ describe("Moloch Harberger Summoner", function () {
         discoveryFee
       );
       await fastForwardTime(parseInt(periodLength.toString()) * 11);
-      const setPrice = await harAsAddr1.setPrice(1, "1000000000000000");
+      const setPrice = await harAsAddr1.setPrice(1, "100000000000000000");
 
       const newPrice = (await harbergerNft.plots(1)).price.toString();
       const amountByPeriod = (await harbergerNft.getAmountByPeriod(depositPeriods, newPrice)).toString();
