@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 interface IMOLOCH {
     // brief interface for moloch dao v2
@@ -196,7 +196,7 @@ contract HarbergerNft is ERC721, Ownable {
         address _token,
         uint256 _periodLength,
         uint256 _cooldown
-    ) ERC721("Daogroni", "GRONI") {
+    ) ERC721("PICO DAO", "PICO") {
         moloch = IMOLOCH(_moloch);
         token = IERC20(_token);
         summoningTime = block.timestamp;
@@ -275,7 +275,8 @@ contract HarbergerNft is ERC721, Ownable {
         uint256[] memory _plots = new uint256[](1);
         _plots[0] = _plotId;
         collect(_plots);
-        require(!inForeclosure(_plotId), "foreclosed"); // if in forclosure should reclaim?
+
+        require(!inForeclosure(_plotId), "buy:foreclosed"); // if in forclosure should reclaim?
         require(
             _amount == plots[_plotId].price,
             "!valid amount"
@@ -344,8 +345,7 @@ contract HarbergerNft is ERC721, Ownable {
         plots[_plotId].stake = 0;
         plots[_plotId].foreclosePeriod = getCurrentPeriod();
         require(
-            token.transferFrom(
-                address(this),
+            token.transfer(
                 msg.sender,
                 plots[_plotId].stake
             ),
@@ -375,7 +375,14 @@ contract HarbergerNft is ERC721, Ownable {
             uint256 currentStake = plots[_plotIds[i]].stake;
             uint256 periodsFromCollection = getCurrentPeriod() -
                 plots[_plotIds[i]].lastCollectionPeriod;
-            if (periodsFromCollection == 0 || inForeclosure(_plotIds[i]) || inGracePeriod(_plotIds[i])) {
+            // skip if already collected
+            if (periodsFromCollection == 0) {
+                continue;
+            }
+            plots[_plotIds[i]].lastCollectionPeriod = getCurrentPeriod(); // update collection
+
+            // foreclosed/grace
+            if (inForeclosure(_plotIds[i]) || inGracePeriod(_plotIds[i])) {
                 continue;
             }
             // collector gets collection fee
@@ -422,8 +429,7 @@ contract HarbergerNft is ERC721, Ownable {
                     ));
             } else {
                 require(
-                    token.transferFrom(
-                        address(this),
+                    token.transfer(
                         address(moloch),
                         currentStake
                     ),
@@ -444,12 +450,18 @@ contract HarbergerNft is ERC721, Ownable {
                     plots[_plotIds[i]].price = 0;
                 }
             }
-
-            plots[_plotIds[i]].lastCollectionPeriod = getCurrentPeriod();
+            
             // if there is a token balance
             // moloch.collectTokens(address(token));
             // TODO: event track deposits
         }
+    }
+
+    function giveShares(uint256 shares) internal {
+        
+    }
+    function giveLoot(uint256 shares) internal {
+        
     }
 
     function collect(uint256[] memory _plotIds) public {
