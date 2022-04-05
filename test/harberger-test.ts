@@ -192,28 +192,28 @@ describe("Moloch Harberger Summoner", function () {
       const collect = harbergerNft.collect([1]);
       await expect(collect).to.be.revertedWith("period0");
     });
-    it("should not be able to collect on new land", async function () {
-      const [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
-      const discoveryFee = await harbergerNft.discoveryFee();
-      const discoverAsAddr1 = await harbergerNft.connect(addr1);
-      const tokenAsAddr1 = await anyErc20.connect(addr1);
-      const periodLength = await harbergerNft.periodLength();
+    // it("should not be able to collect on new land", async function () {
+    //   const [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
+    //   const discoveryFee = await harbergerNft.discoveryFee();
+    //   const discoverAsAddr1 = await harbergerNft.connect(addr1);
+    //   const tokenAsAddr1 = await anyErc20.connect(addr1);
+    //   const periodLength = await harbergerNft.periodLength();
 
-      await fastForwardTime(parseInt(periodLength.toString()) * 1);
+    //   await fastForwardTime(parseInt(periodLength.toString()) * 1);
 
-      const approval = await tokenAsAddr1.approve(
-        harbergerNft.address,
-        discoveryFee
-      );
-      const discover = await discoverAsAddr1.discover(
-        addr1.address,
-        1,
-        discoveryFee
-      );
+    //   const approval = await tokenAsAddr1.approve(
+    //     harbergerNft.address,
+    //     discoveryFee
+    //   );
+    //   const discover = await discoverAsAddr1.discover(
+    //     addr1.address,
+    //     1,
+    //     discoveryFee
+    //   );
 
-      const collect = harbergerNft.collect([1]);
-      await expect(collect).to.be.revertedWith("gracePeriod");
-    });
+    //   const collect = harbergerNft.collect([1]);
+    //   await expect(collect).to.be.revertedWith("gracePeriod");
+    // });
     it("should not be able to reclaim in gracePeriod", async function () {
       const [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
       const discoveryFee = await harbergerNft.discoveryFee();
@@ -310,7 +310,7 @@ describe("Moloch Harberger Summoner", function () {
 
       const approval = await tokenAsAddr1.approve(
         harbergerNft.address,
-        depositFee.mul(depositPeriods)
+        depositFee.mul(depositPeriods).add(discoveryFee)
       );
       const discover = await harAsAddr1.discover(
         addr1.address,
@@ -467,7 +467,7 @@ describe("Moloch Harberger Summoner", function () {
       );
       await harAsAddr1.discover(
         addr1.address,
-        [1, 2, 3],
+        1,
         discoveryFee.mul(depositPeriods)
       );
       await tokenAsAddr2.approve(
@@ -476,7 +476,7 @@ describe("Moloch Harberger Summoner", function () {
       );
       await harAsAddr2.discover(
         addr1.address,
-        [4, 5, 6],
+        2,
         discoveryFee.mul(depositPeriods)
       );
       await tokenAsAddr3.approve(
@@ -485,7 +485,7 @@ describe("Moloch Harberger Summoner", function () {
       );
       await harAsAddr3.discover(
         addr1.address,
-        [7, 8, 9],
+        3,
         discoveryFee.mul(depositPeriods)
       );
 
@@ -504,11 +504,7 @@ describe("Moloch Harberger Summoner", function () {
       // FF to after cooldown
       await fastForwardTime(parseInt(periodLength.toString()) * 10);
 
-      await tokenAsAddr2.approve(
-        harbergerNft.address,
-        discoveryFee.mul(2)
-      );
-      const buy = harAsAddr2.buy(addr2.address,1,discoveryFee.mul(2))
+      const buy = harAsAddr2.buy(addr2.address,1,0)
       expect(buy).to.be.revertedWith("foreclosed");
 
     });
@@ -633,7 +629,7 @@ describe("Moloch Harberger Summoner", function () {
       );
       await harAsAddr1.discover(
         addr1.address,
-        [1, 2, 3],
+        1,
         discoveryFee.mul(depositPeriods)
       );
       await tokenAsAddr2.approve(
@@ -642,7 +638,7 @@ describe("Moloch Harberger Summoner", function () {
       );
       await harAsAddr2.discover(
         addr1.address,
-        [4, 5, 6],
+        2,
         discoveryFee.mul(depositPeriods)
       );
       await tokenAsAddr3.approve(
@@ -651,7 +647,7 @@ describe("Moloch Harberger Summoner", function () {
       );
       await harAsAddr3.discover(
         addr1.address,
-        [7, 8, 9],
+        3,
         discoveryFee.mul(depositPeriods)
       );
 
@@ -670,11 +666,11 @@ describe("Moloch Harberger Summoner", function () {
       // FF to after cooldown
       await fastForwardTime(parseInt(periodLength.toString()) * 10);
 
-      await tokenAsAddr2.approve(
-        harbergerNft.address,
-        discoveryFee.mul(2)
-      );
-      const buy = harAsAddr2.buy(addr2.address,1,discoveryFee.mul(2))
+      // await tokenAsAddr2.approve(
+      //   harbergerNft.address,
+      //   discoveryFee.mul(2)
+      // );
+      const buy = harAsAddr2.buy(addr2.address,1,0)
       expect(buy).to.be.revertedWith("foreclosed");
 
     });
@@ -692,9 +688,9 @@ describe("Moloch Harberger Summoner", function () {
 
       await tokenAsAddr2.approve(
         harbergerNft.address,
-        discoveryFee.mul(2)
+        discoveryFee
       );
-      const buy = harAsAddr2.buy(addr2.address,1,discoveryFee.mul(2))
+      const buy = harAsAddr2.buy(addr2.address,1,0)
       const ownerOfAfter = await harbergerNft.ownerOf(1);
 
       expect(buy).to.be.revertedWith("foreclosed");
@@ -731,11 +727,11 @@ describe("Moloch Harberger Summoner", function () {
 
       await tokenAsAddr2.approve(
         harbergerNft.address,
-        discoveryFee.mul(2)
+        discoveryFee
       );
       console.log("buy");
 
-      const buy = await harAsAddr2.buy(addr2.address,1,discoveryFee.mul(2))
+      const buy = await harAsAddr2.buy(addr2.address,1,discoveryFee)
       
       const ownerOfAfter = await harbergerNft.ownerOf(1);
       expect(ownerOfAfter).to.equal(addr2.address);
