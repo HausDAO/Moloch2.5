@@ -165,7 +165,7 @@ contract HarbergerNft is ERC721, Ownable {
     uint256 public depositFee = 10000000000000000; // fee to deposit
     uint256 rate = 3; // public goods fund, dillutes dao
     uint256 taxRate = 3; // global tax rate
-    uint256 lootPer = 100; // loot per deposit payment
+
     uint256 public periodLength; // length of a deposit period
     uint256 public gracePeriod; // cool down before fair game
     uint256 summoningTime; // time the game is launched
@@ -481,7 +481,7 @@ contract HarbergerNft is ERC721, Ownable {
 
     function tax(uint256 _price) public view returns (uint256) {
         // should get %
-        return _price * taxRate;
+        return (_price / 100) * taxRate;
     }
 
     function getAmountByPeriod(uint256 _periods, uint256 _plotPrice)
