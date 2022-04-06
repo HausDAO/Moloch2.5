@@ -172,8 +172,8 @@ contract HarbergerNft is ERC721, Ownable {
     uint256 public periodLength; // length of a deposit period
     uint256 public gracePeriod; // cool down before fair game
     uint256 summoningTime; // time the game is launched
-    uint256 rows = 24; // 30 x 30 grid
-    uint256 cols = 24; // 30 x 30 grid
+    uint256 constant rows = 24; // 30 x 30 grid
+    uint256 constant cols = 24; // 30 x 30 grid
     uint256 cap = rows * cols; // 30 x 30 grid
 
     string public _baseTokenURI;
@@ -587,10 +587,12 @@ contract HarbergerNft is ERC721, Ownable {
     }
     // TODO
     function getRow(uint256 plotId) internal pure returns (uint256) {
-        return 6;
+        return (plotId / rows) + 1;
+
     }
     function getCol(uint256 plotId) internal pure returns (uint256) {
-        return 9;
+        return (plotId % cols) + 1;
+ 
     }
 
     /**  Constructs the tokenURI, separated out from the public function as its a big function.
