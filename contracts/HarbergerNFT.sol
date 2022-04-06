@@ -605,17 +605,21 @@ contract HarbergerNft is ERC721, Ownable {
         view
         returns (string memory)
     {
-        string memory _nftName = string(abi.encodePacked("FomoNFT DAO "));
+        string memory _nftName = string(abi.encodePacked("PICO DAO "));
+        // TODO: add color layers
         string memory _metadataSVGs = string(
             abi.encodePacked(
                 '<image width="100%" href="',
                 _baseTokenURI,
                 '" />',
-                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="40%">FOMO NFT DAO</text>',
-                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="50%">',
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="40%">PICO DAO</text>',
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="50%">R',
                 Strings.toString(getRow(_tokenId)),
-                " - ",
+                " - C",
                 Strings.toString(getCol(_tokenId)),
+                "</text>",
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="60%">FC: true',
+                " - GP: true",
                 "</text>"
             )
         );
