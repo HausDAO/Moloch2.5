@@ -432,6 +432,8 @@ describe("Moloch Harberger Summoner", function () {
       const periodLength = await harbergerNft.periodLength();
       const depositPeriods = 3;
 
+      await harbergerNft.setBaseURI("https://gateway.pinata.cloud/ipfs/QmW3Q3ds1f2apm49nYniHgsMaMJAxCGrFNdsG72haTyxEi")
+
       // FF out of period 0
       await fastForwardTime(parseInt(periodLength.toString()) );
 
@@ -463,6 +465,19 @@ describe("Moloch Harberger Summoner", function () {
         3,
         discoveryFee
       );
+
+      await tokenAsAddr1.approve(
+        harbergerNft.address,
+        discoveryFee
+      );
+      await harAsAddr1.discover(
+        addr1.address,
+        42,
+        discoveryFee
+      );
+      
+      const meta1 = await harAsAddr1.tokenURI(42);
+      // console.log(meta1.toString());
 
     });
     it("it should not be able to buy in forclosure", async function () {

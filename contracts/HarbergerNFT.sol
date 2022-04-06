@@ -574,6 +574,20 @@ contract HarbergerNft is ERC721, Ownable {
             plots[_plotId].foreclosePeriod <= getCurrentPeriod();
     }
 
+    function svgOverlay(uint256 _plotId) internal view returns (string memory rect) {
+
+        if(inForeclosure(_plotId)){
+            rect = '<rect width="400" height="400" style="stroke: none; fill: #0000ff; fill-opacity: 0.3;  " />';
+        }
+        if(inGracePeriod(_plotId)){
+            rect = '<rect width="400" height="400" style="stroke: none; fill: #ff0000; fill-opacity: 0.3;  " />';
+        }
+        if(!inForeclosure(_plotId) && !inGracePeriod(_plotId)){
+            rect = '<rect width="400" height="400" />';
+        }
+        
+    }
+
     function getCurrentPeriod() public view returns (uint256) {
         return (block.timestamp - summoningTime) / (periodLength);
     }
@@ -587,11 +601,11 @@ contract HarbergerNft is ERC721, Ownable {
     }
     // TODO
     function getRow(uint256 plotId) internal pure returns (uint256) {
-        return (plotId / rows) + 1;
+        return (plotId / rows);
 
     }
     function getCol(uint256 plotId) internal pure returns (uint256) {
-        return (plotId % cols) + 1;
+        return (plotId % cols);
  
     }
 
@@ -605,22 +619,29 @@ contract HarbergerNft is ERC721, Ownable {
         view
         returns (string memory)
     {
-        string memory _nftName = string(abi.encodePacked("PICO DAO "));
         // TODO: add color layers
+        string memory _metadataSVGsOL = string(
+            abi.encodePacked(
+                '<rect width="400" height="400" style="stroke: none; fill: #0000ff; fill-opacity: 0.3;  " />',
+                svgOverlay(_tokenId),
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="30%">PICO DAO</text>',
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="40%">',
+                Strings.toString(_tokenId),
+                '</text>',
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="50%">R',
+                Strings.toString(getRow(_tokenId)),
+                " - C",
+                Strings.toString(getCol(_tokenId)),
+                "</text>"
+                )
+        );
+
         string memory _metadataSVGs = string(
             abi.encodePacked(
                 '<image width="100%" href="',
                 _baseTokenURI,
                 '" />',
-                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="40%">PICO DAO</text>',
-                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="50%">R',
-                Strings.toString(getRow(_tokenId)),
-                " - C",
-                Strings.toString(getCol(_tokenId)),
-                "</text>",
-                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="60%">FC: true',
-                " - GP: true",
-                "</text>"
+                _metadataSVGsOL
             )
         );
 
@@ -642,9 +663,7 @@ contract HarbergerNft is ERC721, Ownable {
                     Base64.encode(
                         bytes(
                             abi.encodePacked(
-                                '{"name":"',
-                                _nftName,
-                                '", "image":"',
+                                '{"name":"PICO DAO", "image":"',
                                 _image,
                                 // Todo something clever
                                 '", "description": "The map to your heart"}'
