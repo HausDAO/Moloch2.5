@@ -85,7 +85,7 @@ async function main() {
 
   console.log({
     pcoShaman: PCOContract.address,
-    moloch: PCOContract.address,
+    moloch: dsm.moloch,
   })
 }
 
