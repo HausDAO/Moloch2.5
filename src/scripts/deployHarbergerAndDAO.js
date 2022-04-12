@@ -34,6 +34,8 @@ async function main() {
   // Rikkeby
   const token = "0xaFF4481D10270F50f203E0763e2597776068CBc5";
   const MolochFactory = "0x61f71A402779108f25aD4B369Dd217d3F008B458";
+  // use your address
+  const summonerAddress = "0xCED608Aa29bB92185D9b6340Adcbfa263DAe075b";
   const periodLength = 60;
   const cooldown = 2;
   
@@ -69,9 +71,9 @@ async function main() {
 
   const setup = await DaoFactoryContract.setUpDaoMinionAndSafe(
     idx,
-    [address],
-    [10],
-    [0],
+    [address, summonerAddress],
+    [1, 1],
+    [0, 0],
     [PCOContract.address]
   )
 
@@ -86,6 +88,8 @@ async function main() {
   console.log({
     pcoShaman: PCOContract.address,
     moloch: dsm.moloch,
+    deployerAddress: address,
+    summonerAddress
   })
 }
 

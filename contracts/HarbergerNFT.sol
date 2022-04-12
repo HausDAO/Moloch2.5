@@ -167,32 +167,29 @@ contract HarbergerNft is ERC721, Ownable {
     uint256 public basePrice = 10000000000000000; // fee to deposit
     uint256 public publicGoodRate = 3; // public goods fund, dillutes dao
     uint256 public taxRate = 3; // global tax rate
-    uint256 unitPer = 100;
+    uint256 public unitPer = 100;
 
     uint256 public periodLength; // length of a deposit period
     uint256 public gracePeriod; // cool down before fair game
-    uint256 summoningTime; // time the game is launched
-    uint256 constant rows = 24; // 30 x 30 grid
-    uint256 constant cols = 24; // 30 x 30 grid
-    uint256 cap = rows * cols; // 30 x 30 grid
+    uint256 public summoningTime; // time the game is launched
+    uint256 public constant rows = 24; // 30 x 30 grid
+    uint256 public constant cols = 24; // 30 x 30 grid
+    uint256 public cap = rows * cols; // 30 x 30 grid
 
     string public _baseTokenURI;
 
-    // TODO
-    // dao (owner) can change fees and rates
-    // price of nft can only be set in intervals then loot per is easier
-    //
-
-    event DiscoverFee(uint256 plotId, uint256 amount, address _paidTo);
-    event AddStake(uint256 plotId, uint256 amount);
-    event Unstake(uint256 plotId, uint256 amount);
+    event DiscoverFee(uint256 plotId, uint256 amount, address paidTo, uint256 period );
+    event AddStake(uint256 plotId, uint256 amount, uint256 period);
+    event Unstake(uint256 plotId, uint256 amount, uint256 foreclosePeriod);
     event SetPrice(uint256 plotId, uint256 price);
+    event Buy(uint256 plotId, uint256 price, uint256 period);
     event SetMeta(uint256 plotId, uint24 color);
     event Collection(
         uint256 sharesOwner,
         uint256 lootPg,
         uint256 lootCollector,
-        uint256 fundsDao
+        uint256 fundsDao,
+        uint256 foreclosePeriod
     );
 
     struct Plot {
@@ -221,6 +218,20 @@ contract HarbergerNft is ERC721, Ownable {
     }
 
     // initial discovery of a plot
+    function discoverAndDeposit(
+        address _to,
+        uint256 _plotId,
+        uint256 _price,
+        uint256 _periods,
+        uint256 _amount
+    ) public {
+        // amount needs to be getFeeAmountByPeriod + discovery fee
+        discover(_to, _plotId, discoveryFee);
+        setPrice(_plotId, _price);
+        deposit(_plotId, _periods, _amount - discoveryFee);
+    }
+
+    // initial discovery of a plot
     function discover(
         address _to,
         uint256 _plotId,
@@ -238,7 +249,7 @@ contract HarbergerNft is ERC721, Ownable {
         plots[_plotId].owner = _to;
         plots[_plotId].lastCollectionPeriod = getCurrentPeriod();
         plots[_plotId].foreclosePeriod = getCurrentPeriod();
-        emit DiscoverFee(_plotId, discoveryFee, owner());
+        emit DiscoverFee(_plotId, discoveryFee, msg.sender, getCurrentPeriod());
     }
 
     // claim ownership if foreclosePeriod and not in cooldown
@@ -247,7 +258,6 @@ contract HarbergerNft is ERC721, Ownable {
         uint256 _plotId,
         uint256 _amount
     ) public {
-        // todo: price? it should be 0 if foreclosePeriod?
         require(getCurrentPeriod() != 0, "period0");
         require(_amount == discoveryFee, "!valid amount");
         require(
@@ -264,8 +274,7 @@ contract HarbergerNft is ERC721, Ownable {
         plots[_plotId].owner = _to;
         plots[_plotId].foreclosePeriod = getCurrentPeriod();
 
-        // TODO: event track deposits
-        emit DiscoverFee(_plotId, discoveryFee, owner());
+        emit DiscoverFee(_plotId, discoveryFee, _to, getCurrentPeriod());
     }
 
     // plot is always for sale. anyone can buy for price
@@ -305,6 +314,9 @@ contract HarbergerNft is ERC721, Ownable {
             "Transfer failed"
         );
         transferFromThis(plots[_plotId].owner, _to, _plotId);
+
+        emit Buy(_plotId, plots[_plotId].price, getCurrentPeriod());
+        
     }
 
     // deposit stake on land
@@ -333,15 +345,16 @@ contract HarbergerNft is ERC721, Ownable {
 
         plots[_plotId].stake = newStake;
         plots[_plotId].foreclosePeriod = 0; // not foreclosePeriod now
-        emit AddStake(_plotId, newStake);
+
+        emit AddStake(_plotId, newStake, getCurrentPeriod());
     }
 
     // remove any stake deposit after backpay of taxes
+    // TODO: known issue gridlock when unstake into graceperiod
     function unstake(uint256 _plotId) public {
         require(_plotId <= cap, "!valid");
         require(plots[_plotId].owner == msg.sender, "!owned");
         require(plots[_plotId].stake != 0, "!stake");
-        // TODO: back pay taxes, does collect work here?
         uint256[] memory _plots = new uint256[](1);
         _plots[0] = _plotId;
         collect(_plots);
@@ -352,7 +365,7 @@ contract HarbergerNft is ERC721, Ownable {
             "Transfer failed"
         );
 
-        emit Unstake(_plotId, plots[_plotId].stake);
+        emit Unstake(_plotId, plots[_plotId].stake, getCurrentPeriod());
     }
 
     // collect fees and issue dao shares
@@ -458,7 +471,7 @@ contract HarbergerNft is ERC721, Ownable {
                 }
             }
 
-            // TODO: if there is a token balance
+            // if there is a token balance
             if (fundsToDao > 0) {
                 moloch.collectTokens(address(token));
             }
@@ -467,7 +480,8 @@ contract HarbergerNft is ERC721, Ownable {
                 sharesToGiveOwner,
                 lootToGivePG,
                 LootToGiveCollector,
-                fundsToDao
+                fundsToDao,
+                plots[_plotIds[i]].foreclosePeriod
             );
         }
     }
@@ -530,7 +544,6 @@ contract HarbergerNft is ERC721, Ownable {
 
     function setPrice(uint256 _plotId, uint256 _price) public {
         // TODO: should only be able to set price if land is not in forclousure cooldown
-        // TODO: set price and deposit
 
         require(_price % basePrice == 0, "price invalid");
         plots[_plotId].price = _price;
@@ -599,7 +612,7 @@ contract HarbergerNft is ERC721, Ownable {
     function setBaseURI(string memory baseURI) public onlyOwner {
         _baseTokenURI = baseURI;
     }
-    // TODO
+    
     function getRow(uint256 plotId) internal pure returns (uint256) {
         return (plotId / rows);
 
