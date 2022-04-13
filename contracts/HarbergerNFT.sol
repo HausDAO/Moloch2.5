@@ -172,9 +172,11 @@ contract HarbergerNft is ERC721, Ownable {
     uint256 public periodLength; // length of a deposit period
     uint256 public gracePeriod; // cool down before fair game
     uint256 public summoningTime; // time the game is launched
-    uint256 public constant rows = 24; // 30 x 30 grid
-    uint256 public constant cols = 24; // 30 x 30 grid
-    uint256 public cap = rows * cols; // 30 x 30 grid
+    uint256 public constant rows = 24; 
+    uint256 public constant cols = 24; 
+    uint256 public constant tileSize = 40; 
+    uint256 public constant imgScale = 5; 
+    uint256 public cap = rows * cols; // 24 x 24 grid
 
     string public _baseTokenURI;
 
@@ -243,7 +245,7 @@ contract HarbergerNft is ERC721, Ownable {
             token.transferFrom(msg.sender, owner(), _amount),
             "Transfer failed"
         );
-        require(_plotId <= cap, "!valid");
+        require(_plotId < cap, "!valid");
         require(plots[_plotId].owner == address(0), "discovered");
         _safeMint(_to, _plotId);
         plots[_plotId].owner = _to;
@@ -264,7 +266,7 @@ contract HarbergerNft is ERC721, Ownable {
             token.transferFrom(msg.sender, owner(), _amount),
             "Transfer failed"
         );
-        require(_plotId <= cap, "!valid");
+        require(_plotId < cap, "!valid");
         require(plots[_plotId].owner != _to, "owned");
         require(plots[_plotId].owner != address(0), "!discovered");
         require(inForeclosure(_plotId), "!foreclosed");
@@ -287,7 +289,7 @@ contract HarbergerNft is ERC721, Ownable {
         uint256 _plotId,
         uint256 _amount
     ) public {
-        require(_plotId <= cap, "!valid");
+        require(_plotId < cap, "!valid");
         require(plots[_plotId].owner != address(0), "!discovered");
         // collect fees for this plot
         uint256[] memory _plots = new uint256[](1);
@@ -352,7 +354,7 @@ contract HarbergerNft is ERC721, Ownable {
     // remove any stake deposit after backpay of taxes
     // TODO: known issue gridlock when unstake into graceperiod
     function unstake(uint256 _plotId) public {
-        require(_plotId <= cap, "!valid");
+        require(_plotId < cap, "!valid");
         require(plots[_plotId].owner == msg.sender, "!owned");
         require(plots[_plotId].stake != 0, "!stake");
         uint256[] memory _plots = new uint256[](1);
@@ -590,13 +592,13 @@ contract HarbergerNft is ERC721, Ownable {
     function svgOverlay(uint256 _plotId) internal view returns (string memory rect) {
 
         if(inForeclosure(_plotId)){
-            rect = '<rect width="400" height="400" style="stroke: none; fill: #0000ff; fill-opacity: 0.3;  " />';
+            rect = '<rect style="stroke: none; fill: #0000ff; fill-opacity: 0.3;  " />';
         }
         if(inGracePeriod(_plotId)){
-            rect = '<rect width="400" height="400" style="stroke: none; fill: #ff0000; fill-opacity: 0.3;  " />';
+            rect = '<rect style="stroke: none; fill: #ff0000; fill-opacity: 0.3;  " />';
         }
         if(!inForeclosure(_plotId) && !inGracePeriod(_plotId)){
-            rect = '<rect width="400" height="400" />';
+            rect = '<rect style="stroke: none; fill: none; />';
         }
         
     }
@@ -635,23 +637,13 @@ contract HarbergerNft is ERC721, Ownable {
         // TODO: add color layers
         string memory _metadataSVGsOL = string(
             abi.encodePacked(
-                '<rect width="400" height="400" style="stroke: none; fill: #0000ff; fill-opacity: 0.3;  " />',
-                svgOverlay(_tokenId),
-                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="30%">PICO DAO</text>',
-                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="40%">',
-                Strings.toString(_tokenId),
-                '</text>',
-                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="50%">R',
-                Strings.toString(getRow(_tokenId)),
-                " - C",
-                Strings.toString(getCol(_tokenId)),
-                "</text>"
+                svgOverlay(_tokenId)
                 )
         );
 
         string memory _metadataSVGs = string(
             abi.encodePacked(
-                '<image width="100%" href="',
+                '<image href="',
                 _baseTokenURI,
                 '" />',
                 _metadataSVGsOL
@@ -659,7 +651,15 @@ contract HarbergerNft is ERC721, Ownable {
         );
 
         bytes memory svg = abi.encodePacked(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet" style="font:14px serif"><rect width="400" height="400" fill="black" />',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="',
+            Strings.toString(getCol(_tokenId) * (tileSize * imgScale)), // x
+            ' ', 
+            Strings.toString(getRow(_tokenId) * (tileSize * imgScale)), // y
+            ' ', 
+            Strings.toString(tileSize * imgScale), // w
+            ' ', 
+            Strings.toString(tileSize * imgScale), // h
+            '" ><rect fill="black" />',
             _metadataSVGs,
             "</svg>"
         );
@@ -678,8 +678,16 @@ contract HarbergerNft is ERC721, Ownable {
                             abi.encodePacked(
                                 '{"name":"PICO DAO", "image":"',
                                 _image,
-                                // Todo something clever
-                                '", "description": "The map to your heart"}'
+                                '", "description": "Welsome to PICO town"',
+                                '"attributes": [{',
+                                '"trait_type": "Row", "value": "',
+                                Strings.toString(getRow(_tokenId)),
+                                '"},{"trait_type": "Col", "value": "',
+                                Strings.toString(getCol(_tokenId)),
+                                '"},{"trait_type": "ID", "value": "',
+                                Strings.toString(_tokenId),
+                                '"}]',
+                                ' }'  
                             )
                         )
                     )

@@ -25,7 +25,7 @@ async function main() {
 	);
   
 
-  const harbergerAddress = "0x3249eEE788c1D4D339fBa59746dEA8D1a0906293";
+  const harbergerAddress = "0xc9F41D6151193695776E367e4c6123de94a9df84";
   
   const PCO = await ethers.getContractFactory('HarbergerNft')
 
@@ -34,7 +34,7 @@ async function main() {
 
   const harbergerContract = (await PCO.attach(harbergerAddress));
 
-  const setURI = await harbergerContract.setBaseURI("https://gateway.pinata.cloud/ipfs/QmW3Q3ds1f2apm49nYniHgsMaMJAxCGrFNdsG72haTyxEi")
+  const setURI = await harbergerContract.setBaseURI("https://daohaus.mypinata.cloud/ipfs/QmRruYy8CkYTpQGYhQV3mj5nbXmmPLUc312FwvUT85TuyJ")
 
 
   console.log('tx hash:', setURI.hash);

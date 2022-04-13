@@ -137,7 +137,7 @@ describe("Moloch Harberger Summoner", function () {
       expect(unsetShaman).to.be.revertedWith("!shaman");
     });
   });
-  describe.only("harbergerNft tests", function () {
+  describe("harbergerNft tests", function () {
     beforeEach(async function () {
       /*
         set harbergerNft as shaman
@@ -166,6 +166,28 @@ describe("Moloch Harberger Summoner", function () {
         discoveryFee
       );
       const ownerOf = await harbergerNft.ownerOf(1);
+      const tokenbalance = await tokenAsAddr1.balanceOf(addr1.address);
+      expect(addr1.address).to.equal(ownerOf.toString());
+      expect(tokenbalance).to.equal(
+        ethers.BigNumber.from(initSupply).sub(discoveryFee)
+      );
+    });
+    it.only("should be able to discover 0", async function () {
+      const [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
+      const discoveryFee = await harbergerNft.discoveryFee();
+      const discoverAsAddr1 = await harbergerNft.connect(addr1);
+      const tokenAsAddr1 = await anyErc20.connect(addr1);
+
+      const approval = await tokenAsAddr1.approve(
+        harbergerNft.address,
+        discoveryFee
+      );
+      const discover = await discoverAsAddr1.discover(
+        addr1.address,
+        0,
+        discoveryFee
+      );
+      const ownerOf = await harbergerNft.ownerOf(0);
       const tokenbalance = await tokenAsAddr1.balanceOf(addr1.address);
       expect(addr1.address).to.equal(ownerOf.toString());
       expect(tokenbalance).to.equal(
@@ -406,7 +428,7 @@ describe("Moloch Harberger Summoner", function () {
 
 
 
-  describe.only("moar harberger test actions", function () {
+  describe("moar harberger test actions", function () {
     beforeEach(async function () {
       const [owner, addr1, addr2, addr3, ...addrs] = await ethers.getSigners();
 
@@ -432,7 +454,7 @@ describe("Moloch Harberger Summoner", function () {
       const periodLength = await harbergerNft.periodLength();
       const depositPeriods = 3;
 
-      await harbergerNft.setBaseURI("https://gateway.pinata.cloud/ipfs/QmW3Q3ds1f2apm49nYniHgsMaMJAxCGrFNdsG72haTyxEi")
+      await harbergerNft.setBaseURI("https://daohaus.mypinata.cloud/ipfs/QmRruYy8CkYTpQGYhQV3mj5nbXmmPLUc312FwvUT85TuyJ")
 
       // FF out of period 0
       await fastForwardTime(parseInt(periodLength.toString()) );
@@ -462,7 +484,7 @@ describe("Moloch Harberger Summoner", function () {
       );
       await harAsAddr3.discover(
         addr3.address,
-        3,
+        0, // first 1 col 0 row 0
         discoveryFee
       );
 
@@ -472,15 +494,15 @@ describe("Moloch Harberger Summoner", function () {
       );
       await harAsAddr1.discover(
         addr1.address,
-        42,
+        575, // last one col 23 row 23
         discoveryFee
       );
       
-      const meta1 = await harAsAddr1.tokenURI(42);
-      // console.log(meta1.toString());
+      const meta1 = await harAsAddr1.tokenURI(575);
+      console.log(meta1.toString());
 
     });
-    it("it should not be able to buy in forclosure", async function () {
+    it.only("it should not be able to buy in forclosure", async function () {
       const [owner, addr1, addr2, addr3, ...addrs] = await ethers.getSigners();
       const discoveryFee = await harbergerNft.discoveryFee()
       const harAsAddr1 = await harbergerNft.connect(addr1);

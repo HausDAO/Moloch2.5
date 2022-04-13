@@ -83,7 +83,7 @@ async function main() {
 
   console.log('config nft shamin');
 
-  const setURI = await PCOContract.setBaseURI("https://gateway.pinata.cloud/ipfs/QmW3Q3ds1f2apm49nYniHgsMaMJAxCGrFNdsG72haTyxEi")
+  const setURI = await PCOContract.setBaseURI("https://daohaus.mypinata.cloud/ipfs/QmRruYy8CkYTpQGYhQV3mj5nbXmmPLUc312FwvUT85TuyJ")
 
   console.log({
     pcoShaman: PCOContract.address,
