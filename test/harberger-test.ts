@@ -475,7 +475,7 @@ describe("Moloch Harberger Summoner", function () {
       );
       await harAsAddr2.discover(
         addr2.address,
-        2,
+        83,
         discoveryFee
       );
       await tokenAsAddr3.approve(
@@ -498,8 +498,8 @@ describe("Moloch Harberger Summoner", function () {
         discoveryFee
       );
       
-      const meta1 = await harAsAddr1.tokenURI(575);
-      console.log(meta1.toString());
+      const meta1 = await harAsAddr1.tokenURI(83);
+      // console.log(meta1.toString());
 
     });
     it.only("it should not be able to buy in forclosure", async function () {

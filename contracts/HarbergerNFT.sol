@@ -678,7 +678,7 @@ contract HarbergerNft is ERC721, Ownable {
                             abi.encodePacked(
                                 '{"name":"PICO DAO", "image":"',
                                 _image,
-                                '", "description": "Welsome to PICO town"',
+                                '", "description": "Welcome to PICO town"',
                                 '"attributes": [{',
                                 '"trait_type": "Row", "value": "',
                                 Strings.toString(getRow(_tokenId)),
