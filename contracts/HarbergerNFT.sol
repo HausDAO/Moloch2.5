@@ -598,7 +598,7 @@ contract HarbergerNft is ERC721, Ownable {
             rect = '<rect style="stroke: none; fill: #ff0000; fill-opacity: 0.3;  " />';
         }
         if(!inForeclosure(_plotId) && !inGracePeriod(_plotId)){
-            rect = '<rect style="stroke: none; fill: none; />';
+            rect = '<rect style="stroke: none; fill: none;" />';
         }
         
     }
