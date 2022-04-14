@@ -172,15 +172,20 @@ contract HarbergerNft is ERC721, Ownable {
     uint256 public periodLength; // length of a deposit period
     uint256 public gracePeriod; // cool down before fair game
     uint256 public summoningTime; // time the game is launched
-    uint256 public constant rows = 24; 
-    uint256 public constant cols = 24; 
-    uint256 public constant tileSize = 40; 
-    uint256 public constant imgScale = 5; 
+    uint256 public constant rows = 24;
+    uint256 public constant cols = 24;
+    uint256 public constant tileSize = 40;
+    uint256 public constant imgScale = 5;
     uint256 public cap = rows * cols; // 24 x 24 grid
 
     string public _baseTokenURI;
 
-    event DiscoverFee(uint256 plotId, uint256 amount, address paidTo, uint256 period );
+    event DiscoverFee(
+        uint256 plotId,
+        uint256 amount,
+        address paidTo,
+        uint256 period
+    );
     event AddStake(uint256 plotId, uint256 amount, uint256 period);
     event Unstake(uint256 plotId, uint256 amount, uint256 foreclosePeriod);
     event SetPrice(uint256 plotId, uint256 price);
@@ -199,6 +204,7 @@ contract HarbergerNft is ERC721, Ownable {
         uint256 stake; // the amount owner has staked
         uint256 foreclosePeriod; // 0 if not or time
         uint256 lastCollectionPeriod; // period
+        uint256 discoverPeriod; // period
         uint256 price;
         uint24 color;
     }
@@ -233,6 +239,31 @@ contract HarbergerNft is ERC721, Ownable {
         deposit(_plotId, _periods, _amount - discoveryFee);
     }
 
+    function reclaimAndDeposit(
+        address _to,
+        uint256 _plotId,
+        uint256 _price,
+        uint256 _periods,
+        uint256 _amount
+    ) public {
+        // amount needs to be getFeeAmountByPeriod + discovery fee
+        reclaim(_to, _plotId, discoveryFee);
+        setPrice(_plotId, _price);
+        deposit(_plotId, _periods, _amount - discoveryFee);
+    }
+
+    function buyAndDeposit(
+        address _to,
+        uint256 _plotId,
+        uint256 _price,
+        uint256 _periods,
+        uint256 _amount
+    ) public {
+        // amount needs to be getFeeAmountByPeriod + price
+        buy(_to, _plotId, _price);
+        deposit(_plotId, _periods, _amount - _price);
+    }
+
     // initial discovery of a plot
     function discover(
         address _to,
@@ -249,8 +280,8 @@ contract HarbergerNft is ERC721, Ownable {
         require(plots[_plotId].owner == address(0), "discovered");
         _safeMint(_to, _plotId);
         plots[_plotId].owner = _to;
-        plots[_plotId].lastCollectionPeriod = getCurrentPeriod();
         plots[_plotId].foreclosePeriod = getCurrentPeriod();
+        plots[_plotId].discoverPeriod = getCurrentPeriod();
         emit DiscoverFee(_plotId, discoveryFee, msg.sender, getCurrentPeriod());
     }
 
@@ -267,13 +298,16 @@ contract HarbergerNft is ERC721, Ownable {
             "Transfer failed"
         );
         require(_plotId < cap, "!valid");
-        require(plots[_plotId].owner != _to, "owned");
+        // require(plots[_plotId].owner != _to, "owned");
         require(plots[_plotId].owner != address(0), "!discovered");
         require(inForeclosure(_plotId), "!foreclosed");
         require(!inGracePeriod(_plotId), "gracePeriod");
         // transfer ownership to claimer
-        transferFromThis(plots[_plotId].owner, _to, _plotId);
-        plots[_plotId].owner = _to;
+        if (plots[_plotId].owner != _to) {
+            transferFromThis(plots[_plotId].owner, _to, _plotId);
+            plots[_plotId].owner = _to;
+        }
+        plots[_plotId].lastCollectionPeriod = 0;
         plots[_plotId].foreclosePeriod = getCurrentPeriod();
 
         emit DiscoverFee(_plotId, discoveryFee, _to, getCurrentPeriod());
@@ -315,10 +349,10 @@ contract HarbergerNft is ERC721, Ownable {
             token.transfer(plots[_plotId].owner, plots[_plotId].stake),
             "Transfer failed"
         );
+        plots[_plotId].lastCollectionPeriod = 0;
         transferFromThis(plots[_plotId].owner, _to, _plotId);
 
         emit Buy(_plotId, plots[_plotId].price, getCurrentPeriod());
-        
     }
 
     // deposit stake on land
@@ -328,6 +362,10 @@ contract HarbergerNft is ERC721, Ownable {
         uint256 _periods,
         uint256 _amount
     ) public {
+        // TODO: is this true?
+        // to pull something out of foreclosed, as old owner, you need to deposit enough to
+        // pay any fees from last collection, better to reclaim
+
         require(
             _amount >= getFeeAmountByPeriod(_periods, plots[_plotId].price),
             "not enough deposit"
@@ -395,7 +433,12 @@ contract HarbergerNft is ERC721, Ownable {
             uint256 periodsFromCollection = getCurrentPeriod() -
                 plots[_plotIds[i]].lastCollectionPeriod;
             // skip if already collected
-            if (periodsFromCollection == 0) {
+            // or skip if just discovered
+            if (
+                periodsFromCollection == 0 ||
+                plots[_plotIds[i]].lastCollectionPeriod ==
+                plots[_plotIds[i]].discoverPeriod
+            ) {
                 continue;
             }
             plots[_plotIds[i]].lastCollectionPeriod = getCurrentPeriod(); // update collection
@@ -468,7 +511,9 @@ contract HarbergerNft is ERC721, Ownable {
                 giveLoot(owner(), lootToGivePG);
                 plots[_plotIds[i]].stake = 0;
                 plots[_plotIds[i]].foreclosePeriod = getCurrentPeriod();
+
                 if (!_deposit) {
+                    // funds are being deposited so we don't want to rest price
                     plots[_plotIds[i]].price = 0;
                 }
             }
@@ -545,15 +590,23 @@ contract HarbergerNft is ERC721, Ownable {
     }
 
     function setPrice(uint256 _plotId, uint256 _price) public {
-        // TODO: should only be able to set price if land is not in forclousure cooldown
+        // should only be able to set price if owner and if land is not in forclousure
+        // or just discovered, reclaimed or bought (no collection)
+        require(plots[_plotId].owner == msg.sender, "!owned");
+        require(
+            !inForeclosure(_plotId) || plots[_plotId].lastCollectionPeriod == 0,
+            "foreclosed"
+        );
 
         require(_price % basePrice == 0, "price invalid");
+
         plots[_plotId].price = _price;
 
         emit SetPrice(_plotId, _price);
     }
 
     function setMeta(uint256 _plotId, uint24 _color) public {
+        require(plots[_plotId].owner == msg.sender, "!owned");
         plots[_plotId].color = _color;
         emit SetMeta(_plotId, _color);
     }
@@ -589,18 +642,21 @@ contract HarbergerNft is ERC721, Ownable {
             plots[_plotId].foreclosePeriod <= getCurrentPeriod();
     }
 
-    function svgOverlay(uint256 _plotId) internal view returns (string memory rect) {
-
-        if(inForeclosure(_plotId)){
+    // TODO: width height needs to be the size of image
+    function svgOverlay(uint256 _plotId)
+        internal
+        view
+        returns (string memory rect)
+    {
+        if (inForeclosure(_plotId)) {
             rect = '<rect style="stroke: none; fill: #0000ff; fill-opacity: 0.3;  " />';
         }
-        if(inGracePeriod(_plotId)){
+        if (inGracePeriod(_plotId)) {
             rect = '<rect style="stroke: none; fill: #ff0000; fill-opacity: 0.3;  " />';
         }
-        if(!inForeclosure(_plotId) && !inGracePeriod(_plotId)){
+        if (!inForeclosure(_plotId) && !inGracePeriod(_plotId)) {
             rect = '<rect style="stroke: none; fill: none;" />';
         }
-        
     }
 
     function getCurrentPeriod() public view returns (uint256) {
@@ -614,14 +670,13 @@ contract HarbergerNft is ERC721, Ownable {
     function setBaseURI(string memory baseURI) public onlyOwner {
         _baseTokenURI = baseURI;
     }
-    
+
     function getRow(uint256 plotId) internal pure returns (uint256) {
         return (plotId / rows);
-
     }
+
     function getCol(uint256 plotId) internal pure returns (uint256) {
         return (plotId % cols);
- 
     }
 
     /**  Constructs the tokenURI, separated out from the public function as its a big function.
@@ -636,9 +691,7 @@ contract HarbergerNft is ERC721, Ownable {
     {
         // TODO: add color layers
         string memory _metadataSVGsOL = string(
-            abi.encodePacked(
-                svgOverlay(_tokenId)
-                )
+            abi.encodePacked(svgOverlay(_tokenId))
         );
 
         string memory _metadataSVGs = string(
@@ -653,11 +706,11 @@ contract HarbergerNft is ERC721, Ownable {
         bytes memory svg = abi.encodePacked(
             '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="',
             Strings.toString(getCol(_tokenId) * (tileSize * imgScale)), // x
-            ' ', 
+            " ",
             Strings.toString(getRow(_tokenId) * (tileSize * imgScale)), // y
-            ' ', 
+            " ",
             Strings.toString(tileSize * imgScale), // w
-            ' ', 
+            " ",
             Strings.toString(tileSize * imgScale), // h
             '" ><rect fill="black" />',
             _metadataSVGs,
@@ -687,7 +740,7 @@ contract HarbergerNft is ERC721, Ownable {
                                 '"},{"trait_type": "ID", "value": "',
                                 Strings.toString(_tokenId),
                                 '"}]',
-                                ' }'  
+                                " }"
                             )
                         )
                     )

@@ -24,7 +24,7 @@ const fastForwardBlocks = async (blocks: number) => {
   }
 };
 
-describe("Moloch Harberger Summoner", function () {
+describe.only("Moloch Harberger Summoner", function () {
   let signers: SignerWithAddress[];
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
@@ -172,7 +172,7 @@ describe("Moloch Harberger Summoner", function () {
         ethers.BigNumber.from(initSupply).sub(discoveryFee)
       );
     });
-    it.only("should be able to discover 0", async function () {
+    it("should be able to discover 0", async function () {
       const [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
       const discoveryFee = await harbergerNft.discoveryFee();
       const discoverAsAddr1 = await harbergerNft.connect(addr1);
@@ -502,7 +502,7 @@ describe("Moloch Harberger Summoner", function () {
       // console.log(meta1.toString());
 
     });
-    it.only("it should not be able to buy in forclosure", async function () {
+    it("it should not be able to buy in forclosure", async function () {
       const [owner, addr1, addr2, addr3, ...addrs] = await ethers.getSigners();
       const discoveryFee = await harbergerNft.discoveryFee()
       const harAsAddr1 = await harbergerNft.connect(addr1);
@@ -516,12 +516,59 @@ describe("Moloch Harberger Summoner", function () {
       // FF to after cooldown
       await fastForwardTime(parseInt(periodLength.toString()) * 10);
 
-      // await tokenAsAddr2.approve(
-      //   harbergerNft.address,
-      //   discoveryFee.mul(2)
-      // );
       const buy = harAsAddr2.buy(addr2.address,1,0)
       expect(buy).to.be.revertedWith("foreclosed");
+
+    });
+
+    it("it should be able pull out of forclosure with reclaim", async function () {
+      const [owner, addr1, addr2, addr3, ...addrs] = await ethers.getSigners();
+      const discoveryFee = await harbergerNft.discoveryFee();
+      const depositFee = await harbergerNft.depositFee();
+      const harAsAddr1 = await harbergerNft.connect(addr1);
+      const harAsAddr2 = await harbergerNft.connect(addr2);
+      const harAsAddr3 = await harbergerNft.connect(addr3);
+      const tokenAsAddr1 = await anyErc20.connect(addr1);
+      const tokenAsAddr2 = await anyErc20.connect(addr2);
+      const tokenAsAddr3 = await anyErc20.connect(addr3);
+      const periodLength = await harbergerNft.periodLength();
+
+      // FF to after cooldown
+      await fastForwardTime(parseInt(periodLength.toString()) * 10);
+      await tokenAsAddr1.approve(
+        harbergerNft.address,
+        discoveryFee
+      );
+      const reclaim = await harAsAddr1.reclaim(addr1.address,1,discoveryFee)
+      const isForclosed = await harAsAddr1.plots(1)
+      // console.log('isForclosed', isForclosed);
+      
+      expect(isForclosed.foreclosePeriod).to.not.equal(0);
+
+    });
+
+    it("it should be able to deposit long after discovery", async function () {
+      const [owner, addr1, addr2, addr3, ...addrs] = await ethers.getSigners();
+      const discoveryFee = await harbergerNft.discoveryFee();
+      const depositFee = await harbergerNft.depositFee();
+      const harAsAddr1 = await harbergerNft.connect(addr1);
+      const harAsAddr2 = await harbergerNft.connect(addr2);
+      const harAsAddr3 = await harbergerNft.connect(addr3);
+      const tokenAsAddr1 = await anyErc20.connect(addr1);
+      const tokenAsAddr2 = await anyErc20.connect(addr2);
+      const tokenAsAddr3 = await anyErc20.connect(addr3);
+      const periodLength = await harbergerNft.periodLength();
+
+      // FF to after cooldown
+      await fastForwardTime(parseInt(periodLength.toString()) * 10);
+      await tokenAsAddr1.approve(
+        harbergerNft.address,
+        depositFee.mul(5)
+      );
+      const deposit = await harAsAddr1.deposit(1,5,depositFee.mul(5))
+      const isForclosed = await harAsAddr1.plots(1)
+      expect(isForclosed.foreclosePeriod).to.equal(0);
+      //expect(buy).to.be.revertedWith("foreclosed");
 
     });
 
