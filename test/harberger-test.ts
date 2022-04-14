@@ -594,6 +594,29 @@ describe.only("Moloch Harberger Summoner", function () {
       expect(ownerOfAfter).to.equal(addr1.address);
 
     });
+
+    it("it should not be able to buy right after discovery (foreclosed)", async function () {
+      const [owner, addr1, addr2, addr3, ...addrs] = await ethers.getSigners();
+      const discoveryFee = await harbergerNft.discoveryFee()
+      const harAsAddr1 = await harbergerNft.connect(addr1);
+      const harAsAddr2 = await harbergerNft.connect(addr2);
+      const harAsAddr3 = await harbergerNft.connect(addr3);
+      const tokenAsAddr1 = await anyErc20.connect(addr1);
+      const tokenAsAddr2 = await anyErc20.connect(addr2);
+      const tokenAsAddr3 = await anyErc20.connect(addr3);
+      const periodLength = await harbergerNft.periodLength();
+
+      await tokenAsAddr2.approve(
+        harbergerNft.address,
+        discoveryFee
+      );
+      const buy = harAsAddr2.buy(addr2.address,1,0)
+      const ownerOfAfter = await harbergerNft.ownerOf(1);
+
+      expect(buy).to.be.revertedWith("foreclosed");
+      expect(ownerOfAfter).to.equal(addr1.address);
+
+    });
     it("it should be able to buy after deposit", async function () {
       const [owner, addr1, addr2, addr3, ...addrs] = await ethers.getSigners();
       const discoveryFee = await harbergerNft.discoveryFee()
