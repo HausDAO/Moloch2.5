@@ -61,6 +61,18 @@ const config: HardhatUserConfig = {
         mnemonic: mnemonic(),
       },
     },
+    optimism: {
+      url: "https://mainnet.optimism.io",
+      accounts: {
+        mnemonic: mnemonic(),
+      },
+    },
+    arbitrum: {
+      url: "https://arb1.arbitrum.io/rpc",
+      accounts: {
+        mnemonic: mnemonic(),
+      },
+    },
     ropsten: {
       url: "https://ropsten.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", //<---- YOUR INFURA ID! (or it won't work)
       accounts: {
