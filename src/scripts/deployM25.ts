@@ -10,12 +10,12 @@ async function main() {
     'Accounts:',
     accounts.map((a) => a.address)
   )
-  
+
   // const contractAddresses = polygon
   // const contractAddresses = mainnet
   // const contractAddresses = mainnet
   // const contractAddresses = xdai
-  
+
   const Moloch = await ethers.getContractFactory('Moloch')
   const MolochSummoner = await ethers.getContractFactory('MolochSummoner')
 
