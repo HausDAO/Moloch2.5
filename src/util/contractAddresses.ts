@@ -6,21 +6,27 @@ interface GnosisContracts {
 }
 
 export const rinkeby: GnosisContracts = {
- gnosisSingleton:  '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552',
- gnosisMultisend: '0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761',
- gnosisFallback: '0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4'
+  gnosisSingleton:  '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552',
+  gnosisMultisend: '0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761',
+  gnosisFallback: '0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4'
 }
 
 export const kovan: GnosisContracts = {
- gnosisSingleton:  '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552',
- gnosisMultisend: '0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761',
- gnosisFallback: '0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4'
+  gnosisSingleton:  '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552',
+  gnosisMultisend: '0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761',
+  gnosisFallback: '0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4'
 }
 
 export const mainnet: GnosisContracts = {
- gnosisSingleton:  '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552',
- gnosisMultisend: '0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761',
- gnosisFallback: '0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4'
+  gnosisSingleton:  '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552',
+  gnosisMultisend: '0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761',
+  gnosisFallback: '0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4'
+}
+
+export const goerli: GnosisContracts = {
+  gnosisSingleton:  '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552',
+  gnosisMultisend: '0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761',
+  gnosisFallback: '0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4',
 }
 
 export const xdai: GnosisContracts = {
