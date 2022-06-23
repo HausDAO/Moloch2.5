@@ -3,7 +3,7 @@ import { Moloch } from '../types/Moloch'
 import { Yeeter } from '../types/Yeeter'
 import { YeetSummoner } from '../types/YeetSummoner'
 
-import { kovan, mainnet, polygon, rinkeby, xdai } from '../util/contractAddresses'
+import { mainnet, polygon, xdai } from '../util/contractAddresses'
 
 async function main() {
   const accounts = await ethers.getSigners()
