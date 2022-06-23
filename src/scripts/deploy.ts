@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import { SafeMinion } from '../types/SafeMinion'
 import { SafeMinionSummoner } from '../types/SafeMinionSummoner'
-import { kovan, mainnet, polygon, rinkeby, xdai } from '../util/contractAddresses'
+import { mainnet, polygon, xdai } from '../util/contractAddresses'
 
 async function main() {
   const accounts = await ethers.getSigners()
