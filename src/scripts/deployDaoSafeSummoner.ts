@@ -16,8 +16,8 @@ async function main() {
   // const contractAddresses = mainnet
   // const contractAddresses = xdai
 
-  const minionSummoner = "0xBD090EF169c0C8589Acb33406C29C20d22bb4a55"
-  const daoSummoner = "0x56faa6adcf15c5033f9b576426543522e5fd3e59"
+  const minionSummoner = "0x594AF060c08EeA9f559Bc668484E50596BcB2CFB"
+  const daoSummoner = "0xf5add874c8c79b7fa8a86291549a4add50553e52"
   
   const Summoner = await ethers.getContractFactory('DaoSafeMinionSummoner')
 

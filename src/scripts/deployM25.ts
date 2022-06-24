@@ -28,12 +28,6 @@ async function main() {
   const molochSummoner = (await MolochSummoner.deploy(
     molochTemplate.address)) as MolochSummoner
 
-  // const conditionalMinionTemplate = (await ConditionalMinionTemplate.deploy()) as ConditionalMinion
-  // const conditionalMinionFactory = await ConditionalMinionSummoner.deploy(conditionalMinionTemplate.address)
-
-  // const erc1271MinionTemplate = (await ERC1271MinionTemplate.deploy()) as Erc1271Minion
-  // const erc1271MinionFactory = await ERC1271MinionSummoner.deploy(erc1271MinionTemplate.address)
-
   console.log('waiting for deployment')
 
   console.log({
