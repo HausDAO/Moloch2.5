@@ -24,7 +24,7 @@ async function main() {
   const molochTemplate = (await Moloch.deploy()) as Moloch
   console.log({molochTemplate})
   await molochTemplate.deployTransaction.wait()
-  console.log('safe deployed')
+  console.log('moloch deployed')
   const molochSummoner = (await MolochSummoner.deploy(
     molochTemplate.address)) as MolochSummoner
 
