@@ -1,4 +1,4 @@
-pragma solidity ^0.8.4;
+pragma solidity >=0.6.0 <0.9.0;
 
 //SPDX-License-Identifier: MIT
 
@@ -16,7 +16,7 @@ contract AnyNFT is ERC721 {
   constructor() ERC721("AnyNFT", "ANFT") {
   }
 
-  function _baseURI() internal pure override returns (string memory) {
+  function _baseURI() internal pure returns (string memory) {
         return "https://daohaus.mypinata.cloud/ipfs/";
     }
 
