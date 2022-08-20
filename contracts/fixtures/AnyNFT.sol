@@ -16,7 +16,7 @@ contract AnyNFT is ERC721 {
   constructor() ERC721("AnyNFT", "ANFT") {
   }
 
-  function _baseURI() internal pure override returns (string memory) {
+  function _baseURI() internal pure returns (string memory) {
         return "https://daohaus.mypinata.cloud/ipfs/";
     }
 
