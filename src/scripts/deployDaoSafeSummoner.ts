@@ -26,7 +26,7 @@ async function main() {
   const summoner = (await Summoner.deploy(
     minionSummoner,
     daoSummoner
-    )) as DaoSafeMinionSummoner
+  )) as DaoSafeMinionSummoner
   await summoner.deployTransaction.wait()
   console.log('summoner deployed')
 
